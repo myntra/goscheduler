@@ -77,7 +77,7 @@ PORT=8081 ./myss -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
-## Configuration Options
+## Configuration
 
 To configure the service, you can use the following options:
 
@@ -91,7 +91,40 @@ To configure the service, you can use the following options:
 
 - `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
 
+## Usage
+### Client onboarding
+Use the following API to create an app:
+```bash
+curl --location 'http://localhost:8080/myss/app' \
+--header 'Content-Type: application/json' \
+--data '{
+    "appId": "Athena",
+    "partitions": 5,
+    "active": true
+}'
 
+Request Body
+The request body should be a JSON object with the following fields:
+- `appId (string)`: The ID of the app to create.
+- `partitions (integer)`: The number of partitions for the app.
+- `active (boolean)`: Specifies if the app is active or not.
 
+Response
+The API will respond with the created app's details in JSON format.
 
-
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "appId": "Athena",
+        "partitions": 5,
+        "active": true,
+        "configuration": {}
+    }
+}
+```
