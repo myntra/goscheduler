@@ -59,13 +59,17 @@ This starts the service instances on ports 8080 and 8081, respectively, and the 
 1. Install [Go](https://go.dev/dl/) (>= 1.17)
 2. Install [Cassandra](https://cassandra.apache.org/_/download.html) (>= 3.0.0) on your machine.
 3. Set the environment variables:
-`GOROOT`: Set it to the directory path of the Go SDK.
-`GOPATH`: Set it to the path of the directory where you want to store your Go workspace.
+  - `GOROOT`: Set it to the directory path of the Go SDK.
+  - `GOPATH`: Set it to the path of the directory where you want to store your Go workspace.
 These environment variables are required for the Go toolchain to work correctly and to manage Go packages.
 3. Run the following command in the repository directory to download and manage the project's dependencies:
-```go mod tidy```
+```
+go mod tidy
+```
 4. Build the service by running the following command in the repository directory:
-```go build .```
+```
+go build .
+```
 5. Start multiple instances of service using following commands:
 ```shell
 PORT=8080 ./myss -h 127.0.0.1 -p 9091
