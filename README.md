@@ -229,17 +229,17 @@ The request body should be a JSON object with the following fields:
   - `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
 
 **Supported Cron Expression**
-Go Scheduler supports standard UNIX cron expression of the following pattern.
 
-# ?????????????? minute (0 - 59)
-# ? ?????????????? hour (0 - 23)
-# ? ? ?????????????? day of the month (1 - 31)
-# ? ? ? ?????????????? month (1 - 12)
-# ? ? ? ? ?????????????? day of the week (0 - 6) (Sunday to Saturday)
-# ? ? ? ? ?                         
-# ? ? ? ? ?
-# ? ? ? ? ?
-# * * * * *
+Go Scheduler supports standard UNIX cron expression of the following pattern.
+```
+* * * * *
+| | | | |
+| | | | └─ Day of the week (0 - 6, where 0 represents Sunday)
+| | | └── Month (1 - 12)
+| | └──── Day of the month (1 - 31)
+| └────── Hour (0 - 23)
+└──────── Minute (0 - 59)
+```
 
 The Cron Expression consists of five fields, each separated by a space:
 
@@ -250,6 +250,13 @@ The Cron Expression consists of five fields, each separated by a space:
 | Day of month  | Yes      | 1-31                   | * ,/-       |
 | Month         | Yes      | 1-12 or JAN-DEC        | * ,-        |
 | Day of week   | Yes      | 0-6 or SUN-SAT         | * ,-        |
+
+The supported symbols and their meanings are as follows:
+
+- `*`: Matches all possible values.
+- `,`: Specifies multiple values.
+- `/`: Specifies stepping values.
+- `-`: Specifies a range of values.
 
 Examples
 - `0 0 * * *`: Executes a task at midnight every day.
