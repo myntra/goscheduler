@@ -296,3 +296,46 @@ Example response body:
     }
 }
 ```
+
+### Check Schedule Status
+```
+curl --location 'http://localhost:8080/myss/schedule/a675115c-0a0e-11ee-bebb-acde48001122' \
+--header 'Accept: application/json'
+```
+
+`{scheduleId}` is the actual UUID of the schedule you want to retrieve.
+
+Example response body:
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "a675115c-0a0e-11ee-bebb-acde48001122",
+            "payload": "{}",
+            "appId": "test",
+            "scheduleTime": 1686676947,
+            "partitionId": 4,
+            "scheduleGroup": 1686676920,
+            "callback": {
+                "type": "http",
+                "details": {
+                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "method": "GET",
+                    "headers": {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                }
+            },
+            "status": "SUCCESS"
+        }
+    }
+}
+```
+
