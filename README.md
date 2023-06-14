@@ -48,7 +48,7 @@ To start the service, we can choose one of the following approaches:
 1. Clone the repository and install [Docker](https://docs.docker.com/get-docker/) on your machine
 2. Change the current directory to the repository directory: `cd ./goscheduler`.
 3. Build and run the Docker containers using the following command: 
-```
+```shell
 docker-compose --no-cache build
 docker-compose up -d
 ```
@@ -67,7 +67,7 @@ These environment variables are required for the Go toolchain to work correctly 
 4. Build the service by running the following command in the repository directory:
 ```go build .```
 5. Start multiple instances of service using following commands:
-```
+```shell
 PORT=8080 ./myss -h 127.0.0.1 -p 9091
 PORT=8081 ./myss -h 127.0.0.1 -p 9092
 ```
