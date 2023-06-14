@@ -92,8 +92,11 @@ To configure the service, you can use the following options:
 - `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
 
 ## Usage
+
 ### Client onboarding
+
 Use the following API to create an app:
+
 ```bash
 curl --location 'http://localhost:8080/myss/app' \
 --header 'Content-Type: application/json' \
@@ -101,7 +104,8 @@ curl --location 'http://localhost:8080/myss/app' \
     "appId": "Athena",
     "partitions": 5,
     "active": true
-}'```
+}'
+```
 
 Request Body
 The request body should be a JSON object with the following fields:
