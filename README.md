@@ -94,14 +94,13 @@ To configure the service, you can use the following options:
 ## Usage
 
 ### Client onboarding
-
 Use the following API to create an app:
 
 ```bash
 curl --location 'http://localhost:8080/myss/app' \
 --header 'Content-Type: application/json' \
 --data '{
-    "appId": "Athena",
+    "appId": "test",
     "partitions": 5,
     "active": true
 }'
@@ -125,10 +124,75 @@ The API will respond with the created app's details in JSON format.
         "totalCount": 1
     },
     "data": {
-        "appId": "Athena",
+        "appId": "test",
         "partitions": 5,
         "active": true,
         "configuration": {}
+    }
+}
+```
+
+### Schedule creation
+#### Create one time schedule
+```bash
+curl --location 'http://localhost:8080/myss/schedule' \
+--header 'Content-Type: application/json' \
+--data '{
+    "appId": "test",
+    "payload": "{}",
+    "scheduleTime": 1686676947,
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}'
+```
+
+Request Body
+The request body should be a JSON object with the following fields:
+
+- `appId (string)`: The ID of the app for which the schedule is created.
+- `payload (string)`: The payload or data associated with the schedule. It can be an empty string or any valid JSON data.
+- `scheduleTime (integer)`: The timestamp representing the schedule time.
+- `callback (object)`: The callback configuration for the schedule.
+- `type (string)`: The type of callback. In this example, it is set to "http".
+- `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
+
+Response
+The API will respond with the created schedule's details in JSON format.
+
+Example response body:
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "scheduleId": "2358e5b6-09f3-11ee-a704-acde48001122",
+        "appId": "test",
+        "payload": "{}",
+        "scheduleTime": 1686676947,
+        "callback": {
+            "type": "http",
+            "details": {
+                "url": "http://127.0.0.1:8080/myss/healthcheck",
+                "method": "GET",
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            }
+        }
     }
 }
 ```
