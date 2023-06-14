@@ -39,7 +39,6 @@ This approach ensures load balancing and fault tolerance within the Poller Clust
 
 
 # Getting Started
-To start the service, we can choose one of the following approaches:
 
 ## Installation
 
@@ -77,6 +76,22 @@ PORT=8080 ./myss -h 127.0.0.1 -p 9091
 PORT=8081 ./myss -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
+
+## Configuration Options
+
+To configure the service, you can use the following options:
+
+- `PORT`: Specify the port number for the service to listen on. For example, `PORT=8080`.
+
+- `-h`: Set the hostname or IP address for the service. For example, `-h 127.0.0.1`.
+
+- `-p`: Specify the port number(s) for the Ringpop instances. For example, `-p 9091` or `-p 9091,9092`.
+
+- `-conf`: Provide the absolute path of a custom configuration file for the service. For example, `-conf /path/to/myconfig.yaml`.
+
+- `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
+
+
 
 
 
