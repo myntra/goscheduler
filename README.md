@@ -199,10 +199,9 @@ Example response body:
 #### Create cron schedule
 ```bash
 curl --location 'http://localhost:8080/myss/schedule' \
---header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
 --header 'Content-Type: application/json' \
 --data '{
-	"appId": "test",
+    "appId": "test",
     "payload": "{}",
     "cronExpression": "*/5 * * * *",
     "callback": {
@@ -228,6 +227,35 @@ The request body should be a JSON object with the following fields:
 - `callback (object)`: The callback configuration for the schedule.
   - `type (string)`: The type of callback. In this example, it is set to "http".
   - `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
+
+**Supported Cron Expression**
+Go Scheduler supports standard UNIX cron expression of the following pattern.
+
+# ?????????????? minute (0 - 59)
+# ? ?????????????? hour (0 - 23)
+# ? ? ?????????????? day of the month (1 - 31)
+# ? ? ? ?????????????? month (1 - 12)
+# ? ? ? ? ?????????????? day of the week (0 - 6) (Sunday to Saturday)
+# ? ? ? ? ?                         
+# ? ? ? ? ?
+# ? ? ? ? ?
+# * * * * *
+
+The Cron Expression consists of five fields, each separated by a space:
+
+| Field         | Required | Allowed Values         | Symbols     |
+|---------------|----------|------------------------|-------------|
+| Minutes       | Yes      | 0-59                   | * ,/-       |
+| Hours         | Yes      | 0-23                   | * ,/-       |
+| Day of month  | Yes      | 1-31                   | * ,/-       |
+| Month         | Yes      | 1-12 or JAN-DEC        | * ,-        |
+| Day of week   | Yes      | 0-6 or SUN-SAT         | * ,-        |
+
+Examples
+- `0 0 * * *`: Executes a task at midnight every day.
+- `0 12 * * MON-FRI`: Executes a task at 12 PM (noon) from Monday to Friday.
+- `*/15 * * * *`: Executes a task every 15 minutes.
+- `0 8,12,18 * * *`: Executes a task at 8 AM, 12 PM (noon), and 6 PM every day.
 
 Response
 The API will respond with the created cron schedule's details in JSON format.
