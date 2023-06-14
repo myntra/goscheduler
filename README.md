@@ -38,3 +38,38 @@ The Poller Cluster exhibits scalability and fault tolerance characteristics. Whe
 This approach ensures load balancing and fault tolerance within the Poller Cluster, enabling efficient task execution and distribution across the available nodes.
 
 
+# Getting Started
+To start the service, we can choose one of the following approaches:
+
+## Approach 1: Using Docker
+
+1. Clone the repository and install [Docker](https://docs.docker.com/get-docker/) on your machine
+2. Change the current directory to the repository directory: `cd ./goscheduler`.
+3. Build and run the Docker containers using the following command: 
+```
+docker-compose --no-cache build
+docker-compose up -d
+```
+This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
+
+## Approach 2: Manual Setup
+
+1. Install [Go](https://go.dev/dl/) (>= 1.17)
+2. Install [Cassandra](https://cassandra.apache.org/_/download.html) (>= 3.0.0) on your machine.
+3. Set the environment variables:
+`GOROOT`: Set it to the directory path of the Go SDK.
+`GOPATH`: Set it to the path of the directory where you want to store your Go workspace.
+These environment variables are required for the Go toolchain to work correctly and to manage Go packages.
+3. Run the following command in the repository directory to download and manage the project's dependencies:
+```go mod tidy```
+4. Build the service by running the following command in the repository directory:
+```go build .```
+5. Start multiple instances of service using following commands:
+```
+PORT=8080 ./myss -h 127.0.0.1 -p 9091
+PORT=8081 ./myss -h 127.0.0.1 -p 9092
+```
+This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
+
+
+
