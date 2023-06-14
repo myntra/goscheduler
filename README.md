@@ -155,7 +155,6 @@ curl --location 'http://localhost:8080/myss/schedule' \
 }'
 ```
 
-Request Body
 The request body should be a JSON object with the following fields:
 
 - `appId (string)`: The ID of the app for which the schedule is created.
@@ -165,7 +164,7 @@ The request body should be a JSON object with the following fields:
   - `type (string)`: The type of callback. In this example, it is set to "http".
   - `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
 
-Response
+
 The API will respond with the created schedule's details in JSON format.
 
 Example response body:
@@ -218,7 +217,6 @@ curl --location 'http://localhost:8080/myss/schedule' \
 }'
 ```
 
-Request Body
 The request body should be a JSON object with the following fields:
 
 - `appId (string)`: The ID of the app for which the cron schedule is created.
@@ -264,7 +262,6 @@ Examples
 - `*/15 * * * *`: Executes a task every 15 minutes.
 - `0 8,12,18 * * *`: Executes a task at 8 AM, 12 PM (noon), and 6 PM every day.
 
-Response
 The API will respond with the created cron schedule's details in JSON format.
 
 Example response body:
