@@ -45,7 +45,8 @@ To start the service, we can choose one of the following approaches:
 
 ### Approach 1: Using Docker
 
-1. Clone the repository and install [Docker](https://docs.docker.com/get-docker/) on your machine
+1. Install [Docker](https://docs.docker.com/get-docker/) on your machine.
+2. Clone the repository. 
 2. Change the current directory to the repository directory: `cd ./goscheduler`.
 3. Build and run the Docker containers using the following command: 
 ```shell
