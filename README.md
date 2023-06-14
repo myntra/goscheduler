@@ -162,8 +162,8 @@ The request body should be a JSON object with the following fields:
 - `payload (string)`: The payload or data associated with the schedule. It can be an empty string or any valid JSON data.
 - `scheduleTime (integer)`: The timestamp representing the schedule time.
 - `callback (object)`: The callback configuration for the schedule.
-- `type (string)`: The type of callback. In this example, it is set to "http".
-- `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
+  - `type (string)`: The type of callback. In this example, it is set to "http".
+  - `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
 
 Response
 The API will respond with the created schedule's details in JSON format.
@@ -192,6 +192,74 @@ Example response body:
                     "Accept": "application/json"
                 }
             }
+        }
+    }
+}
+```
+#### Create cron schedule
+```bash
+curl --location 'http://localhost:8080/myss/schedule' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
+--header 'Content-Type: application/json' \
+--data '{
+	"appId": "test",
+    "payload": "{}",
+    "cronExpression": "*/5 * * * *",
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}'
+```
+
+Request Body
+The request body should be a JSON object with the following fields:
+
+- `appId (string)`: The ID of the app for which the cron schedule is created.
+- `payload (string)`: The payload or data associated with the cron schedule. It can be an empty string or any valid JSON data.
+- `cronExpression (string)`: The cron expression representing the schedule pattern.
+- `callback (object)`: The callback configuration for the schedule.
+  - `type (string)`: The type of callback. In this example, it is set to "http".
+  - `details (object)`: The details specific to the callback type. For the "http" callback, it includes the URL, HTTP method, and headers.
+
+Response
+The API will respond with the created cron schedule's details in JSON format.
+
+Example response body:
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "35b5e19e-0aa4-11ee-8563-acde48001122",
+            "payload": "{}",
+            "appId": "test",
+            "partitionId": 3,
+            "callback": {
+                "type": "http",
+                "details": {
+                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "method": "GET",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                }
+            },
+            "cronExpression": "*/5 * * * *",
+            "status": "SCHEDULED"
         }
     }
 }
