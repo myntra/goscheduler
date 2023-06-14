@@ -101,7 +101,7 @@ curl --location 'http://localhost:8080/myss/app' \
     "appId": "Athena",
     "partitions": 5,
     "active": true
-}'
+}'```
 
 Request Body
 The request body should be a JSON object with the following fields:
