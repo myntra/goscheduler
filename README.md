@@ -41,7 +41,9 @@ This approach ensures load balancing and fault tolerance within the Poller Clust
 # Getting Started
 To start the service, we can choose one of the following approaches:
 
-## Approach 1: Using Docker
+## Installation
+
+### Approach 1: Using Docker
 
 1. Clone the repository and install [Docker](https://docs.docker.com/get-docker/) on your machine
 2. Change the current directory to the repository directory: `cd ./goscheduler`.
@@ -52,7 +54,7 @@ docker-compose up -d
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
-## Approach 2: Manual Setup
+### Approach 2: Manual Setup
 
 1. Install [Go](https://go.dev/dl/) (>= 1.17)
 2. Install [Cassandra](https://cassandra.apache.org/_/download.html) (>= 3.0.0) on your machine.
