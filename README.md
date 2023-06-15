@@ -145,6 +145,7 @@ To configure the service, you can use the following options:
 ## Usage
 
 ### Client onboarding
+For any schedule creation, you need to register the app associated with it first. Additionally, when creating Cron Schedules, you need to register the **Athena** app (default app, which can be changed from the configuration).
 Use the following API to create an app:
 
 ```bash
