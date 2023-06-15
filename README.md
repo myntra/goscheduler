@@ -409,11 +409,11 @@ The methods in the Callback interface provide the necessary functionality for in
 - **Invoke(wrapper ScheduleWrapper) error**: Executes the logic associated with the callback when it is triggered.
 - **Validate() error**: Performs validation checks on the callback's details to ensure they are properly configured.
 
-Sample example
+Sample Example
 ```
 type FooBarCallback struct {
-	Type string `json:"type"`
-	// Additional fields specific to FooBar callback
+	Type    string `json:"type"`
+        Details string `json:"details"`
 }
 
 func (f *FooBarCallback) GetType() string {
@@ -421,11 +421,6 @@ func (f *FooBarCallback) GetType() string {
 }
 
 func (f *FooBarCallback) GetDetails() (string, error) {
-	// Sample implementation: Return a JSON string representing the details
-	details := map[string]interface{}{
-		"foo": "bar",
-		"baz": 123,
-	}
 	detailsJSON, err := json.Marshal(details)
 	if err != nil {
 		return "", err
