@@ -48,6 +48,24 @@ The Scheduler service utilizes Cassandra as the datastore. It stores the followi
 - Client Configuration Metadata: The datastore holds metadata related to client configurations.
 - Poller Instance Statuses and Poller Node Membership: The status and membership information of poller instances are stored in the datastore.
 
+### Cassandra Data Model
+The data layout in Cassandra is designed in a way that during every minute, the poller instance request goes to a single Cassandra shard, ensuring fast reads.
+The schedule table has the following primary key structure: (clientid, poller count id, schedule minute).
+
+For example, the data for the use case mentioned earlier will look like:
+
+```
+C1, 1, 5:00PM, uuid1, payload
+C1, 2, 5:00PM, uuid2, payload
+...
+C1, 50, 5:00PM, uuid50000, payload
+```
+Here, `uuid1` to `uuid50000` are unique schedule IDs.
+
+In this data model, we perform 50,000 Cassandra writes and 50 Cassandra reads for the given use case.
+
+It's important to note that not every schedule fire requires a read operation. The number of Cassandra reads in a minute is equal to the number of poller instances running for all clients. As Cassandra is well-suited for high write throughput and lower read throughput, this data modeling and poller design work effectively with the Cassandra datastore layer.
+
 ## Poller Cluster
 The Poller Cluster in the Scheduler service utilizes the [Uber ringpop-go library](https://github.com/uber/ringpop-go) for its implementation. Ringpop provides application-level sharding, creating a consistent hash ring of available Poller Cluster nodes. The ring ensures that keys are distributed across the ring, with specific parts of the ring owned by individual Poller Cluster nodes.
 
