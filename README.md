@@ -1,7 +1,6 @@
 # Table of Contents
 1. [Introduction](#introduction)
 2. [Architecture](#architecture)
-3. [Design Overview](#design-overview)
     - [Tech Stack](#tech-stack)
     - [Service Layer](#service-layer)
     - [Datastore](#datastore)
@@ -9,8 +8,8 @@
     - [Poller Cluster](#poller-cluster)
       - [Poller Distribution](#poller-distribution)
       - [Scalability and Fault Tolerance](#scalability-and-fault-tolerance)
-4. [How does it work?](#how-does-it-work) 
-5. [Getting Started](#getting-started)
+3. [How does it work?](#how-does-it-work) 
+4. [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Approach 1: Using Docker](#approach-1-using-docker)
       - [Approach 2: Manual Setup](#approach-2-manual-setup)
@@ -28,8 +27,6 @@ GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source 
 # Architecture
 ![Go Scheduler Architecture](./docs/images/go_scheduler_arch.png)
 
-
-# Design Overview
 The Go Scheduler service consists of three major components - http service layer, poller cluster and datastore.
 
 ## Tech Stack
