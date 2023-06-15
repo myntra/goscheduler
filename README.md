@@ -387,4 +387,89 @@ Example response body:
     }
 }
 ```
-Please find all the APIs under API documentation section
+### Customizable Callback
+GoScheduler's Callback feature is designed to be extensible, enabling users to define and utilize their own custom callbacks. The Callback structure serves as the foundation for creating customized callbacks tailored to specific requirements. By implementing the methods defined in the Callback interface, users can extend the functionality of the GoScheduler with their own callback implementations.
+
+The Callback structure in GoScheduler consists of the following methods:
+```
+type Callback interface {
+	GetType() string
+	GetDetails() (string, error)
+	Marshal(map[string]interface{}) error
+	Invoke(wrapper ScheduleWrapper) error
+	Validate() error 
+	json.Unmarshaler 
+}
+```
+
+The methods in the Callback interface provide the necessary functionality for integrating customized callbacks into the GoScheduler.
+- **GetType() string**: Returns the type or identifier of the callback.
+- **GetDetails() (string, error)**: Retrieves the details of the callback, typically in JSON format.
+- **Marshal(map[string]interface{}) error**: Deserializes the callback details from a map or JSON representation.
+- **Invoke(wrapper ScheduleWrapper) error**: Executes the logic associated with the callback when it is triggered.
+- **Validate() error**: Performs validation checks on the callback's details to ensure they are properly configured.
+
+Sample example
+```
+type FooBarCallback struct {
+	Type string `json:"type"`
+	// Additional fields specific to FooBar callback
+}
+
+func (f *FooBarCallback) GetType() string {
+	return f.Type
+}
+
+func (f *FooBarCallback) GetDetails() (string, error) {
+	// Sample implementation: Return a JSON string representing the details
+	details := map[string]interface{}{
+		"foo": "bar",
+		"baz": 123,
+	}
+	detailsJSON, err := json.Marshal(details)
+	if err != nil {
+		return "", err
+	}
+	return string(detailsJSON), nil
+}
+
+func (f *FooBarCallback) Marshal(m map[string]interface{}) error {
+	// Sample implementation: Unmarshal the provided map to set the fields of FooBarCallback
+	typeAlias := struct {
+		Type string `json:"type"`
+	}{}
+	if err := mapstructure.Decode(m, &typeAlias); err != nil {
+		return err
+	}
+	f.Type = typeAlias.Type
+	return nil
+}
+
+func (f *FooBarCallback) Invoke(wrapper ScheduleWrapper) error {
+    // Invoke the FooBar callback logic
+    err := invokeFooBarCallback()
+
+    if err != nil {
+        wrapper.Schedule.Status = Failure
+        wrapper.Schedule.ErrorMessage = err.Error()
+    } else {
+        wrapper.Schedule.Status = Success
+    }
+
+    // Push the updated schedule to the Aggregate Channel
+    AggregateChannel <- wrapper
+
+    return nil
+}
+
+func (f *FooBarCallback) Validate() error {
+	// Sample implementation: Perform validation logic for FooBar callback
+	if f.Type == "" {
+		return errors.New("FooBar callback type is required")
+	}
+
+	// Additional validation logic specific to FooBar callback
+
+	return nil
+}
+```
