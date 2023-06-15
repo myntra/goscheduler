@@ -9,7 +9,6 @@
     - [Poller Cluster](#poller-cluster)
       - [Poller Distribution](#poller-distribution)
       - [Scalability and Fault Tolerance](#scalability-and-fault-tolerance)
-
 4. [How does it work?](#how-does-it-work) 
 5. [Getting Started](#getting-started)
     - [Installation](#installation)
