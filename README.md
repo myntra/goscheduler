@@ -469,3 +469,27 @@ func (f *FooBarCallback) Validate() error {
 	return nil
 }
 ```
+In this example, FooBarCallback is a custom callback implementation that defines the specific behavior for the Callback interface methods. Customize the fields and logic according to your requirements.
+
+**Usage in startup file**
+To incorporate the custom callback implementation in the GoScheduler, you need to make changes in the startup file (main function) as follows:
+
+```
+func main() {
+	// Load all the configs
+	config := conf.InitConfig()
+
+	// Create the custom callback factories map
+	customCallbackFactories := map[string]store.Factory{
+		"foo-bar": func() store.Callback { return &foobar.FooBarCallback{} },
+		// Add more custom callback factories as needed
+	}
+
+
+	// Create the scheduler with the custom callback factories
+	s := scheduler.New(config, customCallbackFactories)
+
+	// Wait for the termination signal
+	s.Supervisor.WaitForTermination()
+}
+```
