@@ -472,6 +472,7 @@ func (f *FooBarCallback) Validate() error {
 In this example, FooBarCallback is a custom callback implementation that defines the specific behavior for the Callback interface methods. Customize the fields and logic according to your requirements.
 
 **Usage in startup file**
+
 To incorporate the custom callback implementation in the GoScheduler, you need to make changes in the startup file (main function) as follows:
 
 ```
