@@ -25,7 +25,8 @@
       	- [Register App](#register-app)
         - [Create One Time Schedule](#create-one-time-schedule)
         - [Create Cron Schedule](#create-cron-schedule)
-        - [Get Schedule](#get-schedule)	
+        - [Get Schedule](#get-schedule)
+        - [Customizable Callback](#customizable-callback)
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -660,19 +661,20 @@ package main
 
 import (
 	"fmt"
-	"github.com/myntra/goscheduler/store"
+
 	sch "github.com/myntra/goscheduler/scheduler"
+	"github.com/myntra/goscheduler/store"
 )
 
 func main() {
-        // Create a map of callback factories
+	// Create a map of callback factories
 	callbackFactories := map[string]sch.CallbackFactory{
-			"foobar": func() store.Callback { return &FooBarCallback{} },
-		}
-	
+		"foobar": func() store.Callback { return &FooBarCallback{} },
+	}
+
 	// Load the configuration file and create a Scheduler instance
 	scheduler := sch.FromFileWithCallbacks(callbackFactories, "config.json")
-	
+
 	// Create a sample schedule payload
 	schedule := store.Schedule{
 		AppId:        "test",
@@ -683,14 +685,14 @@ func main() {
 			Details: "Custom details for FooBar callback",
 		},
 	}
-	
+
 	// Create the schedule using the CreateSchedule function
 	createdSchedule, err := CreateSchedule(schedule)
 	if err != nil {
 		fmt.Println("Error creating schedule:", err)
 		return
 	}
-	
+
 	// Print the created schedule
 	fmt.Println("Created schedule:", createdSchedule)
 }
