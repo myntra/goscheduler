@@ -397,7 +397,7 @@ Example response body:
 GoScheduler's Callback feature is designed to be extensible, enabling users to define and utilize their own custom callbacks. The Callback structure serves as the foundation for creating customized callbacks tailored to specific requirements. By implementing the methods defined in the Callback interface, users can extend the functionality of the GoScheduler with their own callback implementations.
 
 The Callback structure in GoScheduler consists of the following methods:
-```
+```go
 type Callback interface {
 	GetType() string
 	GetDetails() (string, error)
@@ -416,7 +416,7 @@ The methods in the Callback interface provide the necessary functionality for in
 - **Validate() error**: Performs validation checks on the callback's details to ensure they are properly configured.
 
 Sample Example
-```
+```go
 type FooBarCallback struct {
 	Type    string `json:"type"`
         Details string `json:"details"`
@@ -480,7 +480,7 @@ In this example, FooBarCallback is a custom callback implementation that defines
 
 To incorporate the custom callback implementation in the GoScheduler, you need to make changes in the startup file (main function) as follows:
 
-```
+```go
 func main() {
 	// Load all the configs
 	config := conf.InitConfig()
