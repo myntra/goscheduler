@@ -13,17 +13,17 @@
     - [Installation](#installation)
       - [Approach 1: Using Docker](#approach-1-using-docker)
       - [Approach 2: Manual Setup](#approach-2-manual-setup)
-      - [Unit test](#unit-test)
+      - [Unit Tests](#unit-test)
     - [Configuration](#configuration)
 5. [Usage](#usage)
-    - [Use as separate service](#use-as-separate-service)
-      - [Client onboarding](#client-onboarding)
-      - [Schedule creation](#schedule-creation)
-        - [Create one-time schedule](#create-one-time-schedule)
-        - [Create cron schedule](#create-cron-schedule)
+    - [Use as Separate Service](#use-as-separate-service)
+      - [Client Onboarding](#client-onboarding)
+      - [Schedule Creation](#schedule-creation)
+        - [Create One Time Schedule](#create-one-time-schedule)
+        - [Create Cron Schedule](#create-cron-schedule)
       - [Check Schedule Status](#check-schedule-status)
       - [Customizable Callback](#customizable-callback)
-    - [Use as go module](#use-as-go-module)
+    - [Use as Go Module](#use-as-go-module)
       - [Register App](#register-app)
       - [Create One Time Schedule](#create-one-time-schedule)
       - [Create Cron Schedule](#create-cron-schedule)
@@ -158,9 +158,9 @@ To configure the service, you can use the following options:
 # Usage
 Go Scheduler can be used as a separate service or as part of a Go module. Here's how you can incorporate Go Scheduler into your project:
 
-## Use as separate service
+## Use as Separate Service
 
-### Client onboarding
+### Client Onboarding
 For any schedule creation, you need to register the app associated with it first. Additionally, when creating Cron Schedules, you need to register the **Athena** app (default app, which can be changed from the configuration).
 Use the following API to create an app:
 
@@ -200,8 +200,8 @@ The API will respond with the created app's details in JSON format.
 }
 ```
 
-### Schedule creation
-#### Create one time schedule
+### Schedule Creation
+#### Create One Time Schedule
 ```bash
 curl --location 'http://localhost:8080/myss/schedule' \
 --header 'Content-Type: application/json' \
@@ -263,7 +263,7 @@ Example response body:
     }
 }
 ```
-#### Create cron schedule
+#### Create Cron Schedule
 ```bash
 curl --location 'http://localhost:8080/myss/schedule' \
 --header 'Content-Type: application/json' \
@@ -512,7 +512,7 @@ func main() {
 	s.Supervisor.WaitForTermination()
 }
 ```
-## Use as go module
+## Use as Go Module
 If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying it as a separate process.
 ### Register App
 
