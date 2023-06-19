@@ -14,19 +14,19 @@
       - [Approach 1: Using Docker](#approach-1-using-docker)
       - [Approach 2: Manual Setup](#approach-2-manual-setup)
     - [Configuration](#configuration)
-    - [Usage](#usage)
+    - [Use as separate service](#use-as-separate-service)
       - [Client onboarding](#client-onboarding)
       - [Schedule creation](#schedule-creation)
         - [Create one-time schedule](#create-one-time-schedule)
         - [Create cron schedule](#create-cron-schedule)
       - [Check Schedule Status](#check-schedule-status)
       - [Customizable Callback](#customizable-callback)
-      - [Use as go module](#use-as-go-module)
-      	- [Register App](#register-app)
-        - [Create One Time Schedule](#create-one-time-schedule)
-        - [Create Cron Schedule](#create-cron-schedule)
-        - [Get Schedule](#get-schedule)
-        - [Customizable Callback](#customizable-callback)
+    - [Use as go module](#use-as-go-module)
+      - [Register App](#register-app)
+      - [Create One Time Schedule](#create-one-time-schedule)
+      - [Create Cron Schedule](#create-cron-schedule)
+      - [Get Schedule](#get-schedule)
+      - [Customizable Callback](#customizable-callback)
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -146,7 +146,7 @@ To configure the service, you can use the following options:
 
 - `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
 
-## Usage
+## Use as separate service
 
 ### Client onboarding
 For any schedule creation, you need to register the app associated with it first. Additionally, when creating Cron Schedules, you need to register the **Athena** app (default app, which can be changed from the configuration).
@@ -500,10 +500,9 @@ func main() {
 	s.Supervisor.WaitForTermination()
 }
 ```
-### Use as go module
+## Use as go module
 If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying it as a separate process.
-Sample Examples
-#### Register App
+### Register App
 
 ```go
 package main
@@ -536,7 +535,7 @@ func main() {
  }
 ```
 
-#### Create One Time Schedule
+### Create One Time Schedule
 
 ```go
 package main
@@ -580,7 +579,7 @@ func main() {
  }
 ```
 
-#### Create Cron Schedule
+### Create Cron Schedule
 Make sure to create Athena app before creating any Cron Schedules
 ```go
 package main
@@ -624,7 +623,7 @@ func main() {
  }
 ```
 
-#### Get Schedule
+### Get Schedule
 
 ```go
 package main
@@ -653,7 +652,7 @@ func main() {
  }
 ```
 
-#### Customised Callback
+### Customised Callback
 Using `FooBarCallback` defined earlier
 
 ```go
