@@ -15,6 +15,7 @@
       - [Approach 2: Manual Setup](#approach-2-manual-setup)
       - [Unit test](#unit-test)
     - [Configuration](#configuration)
+5. [Usage](#usage)
     - [Use as separate service](#use-as-separate-service)
       - [Client onboarding](#client-onboarding)
       - [Schedule creation](#schedule-creation)
@@ -153,6 +154,9 @@ To configure the service, you can use the following options:
 - `-conf`: Provide the absolute path of a custom configuration file for the service. For example, `-conf /path/to/myconfig.yaml`.
 
 - `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
+
+# Usage
+Go Scheduler can be used as a separate service or as part of a Go module. Here's how you can incorporate Go Scheduler into your project:
 
 ## Use as separate service
 
