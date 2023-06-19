@@ -553,13 +553,13 @@ func main() {
 	service := scheduler.Service
 
 	// Create a Schedule with a sample HTTP Callback
-	createSchedulePayload := sch.Schedule{
+	createSchedulePayload := store.Schedule{
 		AppId:        "test",
 		Payload:      "{}",
 		ScheduleTime: time.Now().Unix(),
-		Callback: sch.Callback{
+		Callback: store.Callback{
 			Type: "http",
-			Details: sch.HTTPCallback{
+			Details: store.HTTPCallback{
 				Url: "http://127.0.0.1:8080/test/healthcheck",
 				Method: "GET",
 				Headers: map[string]string{
@@ -597,13 +597,13 @@ func main() {
 	service := scheduler.Service
 
 	// Create a Schedule with a sample HTTP Callback
-	createSchedulePayload := sch.Schedule{
+	createSchedulePayload := store.Schedule{
 		AppId:        "test",
 		Payload:      "{}",
 		CronExpression: "* * * * *",
-		Callback: sch.Callback{
+		Callback: store.Callback{
 			Type: "http",
-			Details: sch.HTTPCallback{
+			Details: store.HTTPCallback{
 				Url: "http://127.0.0.1:8080/test/healthcheck",
 				Method: "GET",
 				Headers: map[string]string{
