@@ -24,7 +24,7 @@
         - [Check Schedule Status](#check-schedule-status)
         - [Customizable Callback](#customizable-callback)
     - [Use as Go Module](#use-as-go-module)
-        - [Client Onboarding (Go Module)](##client-onboarding-go-module)
+        - [Client Onboarding (Go Module)](#client-onboarding-go-module)
         - [Create One Time Schedule (Go Module)](#create-one-time-schedule-go-module)
         - [Create Cron Schedule (Go Module)](#create-cron-schedule-go-module)
         - [Check Schedule Status (Go Module)](#check-schedule-status-go-module)
