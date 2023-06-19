@@ -494,3 +494,87 @@ func main() {
 	s.Supervisor.WaitForTermination()
 }
 ```
+### Use as go module
+If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying as a separate process.
+Sample Example
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/myntra/goScheduler/store"
+	"github.com/myntra/goScheduler/sch"
+)
+
+func main() {
+	// Create a Scheduler instance using a configuration loaded from a file
+	scheduler := FromConfFile("config.json")
+	service := scheduler.Service
+
+	// Register App
+	registerAppPayload := store.App{
+		AppId:      "my-app",
+		Partitions: 4,
+		Active:     true,
+	}
+
+	registeredApp, err := service.RegisterApp(registerAppPayload)
+	if err != nil {
+		fmt.Printf("Failed to register app: %v\n", err)
+		return
+	}
+	fmt.Printf("Registered app: %+v\n", registeredApp)
+
+	// Create Schedule
+	createSchedulePayload := sch.Schedule{
+		AppId:      "my-app",
+		ScheduleId: "12345",
+		StartTime:  time.Date(2023, time.June, 14, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2023, time.June, 14, 10, 0, 0, 0, time.UTC),
+		IsRecurring: false,
+	}
+
+	createdSchedule, err := service.CreateSchedule(createSchedulePayload)
+	if err != nil {
+		fmt.Printf("Failed to create schedule: %v\n", err)
+		return
+	}
+	fmt.Printf("Created schedule: %+v\n", createdSchedule)
+
+	// Get Schedule
+	scheduleUUID := "12345"
+
+	schedule, err := service.GetSchedule(scheduleUUID)
+	if err != nil {
+		fmt.Printf("Failed to get schedule: %v\n", err)
+		return
+	}
+	fmt.Printf("Retrieved schedule: %+v\n", schedule)
+
+	// Activate App
+	appIDToActivate := "my-app"
+
+	err = service.ActivateApp(appIDToActivate)
+	if err != nil {
+		fmt.Printf("Failed to activate app: %v\n", err)
+		return
+	}
+	fmt.Printf("Activated app: %s\n", appIDToActivate)
+
+	// Deactivate App
+	appIDToDeactivate := "my-app"
+
+	err = service.DeactivateApp(appIDToDeactivate)
+	if err != nil {
+		fmt.Printf("Failed to deactivate app: %v\n", err)
+		return
+	}
+	fmt.Printf("Deactivated app: %s\n", appIDToDeactivate)
+}
+```
+
+
+
+
