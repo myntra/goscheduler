@@ -13,6 +13,7 @@
     - [Installation](#installation)
       - [Approach 1: Using Docker](#approach-1-using-docker)
       - [Approach 2: Manual Setup](#approach-2-manual-setup)
+      - [Unit test](#unit-test)
     - [Configuration](#configuration)
     - [Use as separate service](#use-as-separate-service)
       - [Client onboarding](#client-onboarding)
@@ -131,6 +132,13 @@ PORT=8080 ./myss -h 127.0.0.1 -p 9091
 PORT=8081 ./myss -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
+
+### Unit test
+To run unit tests for go scheduler, you can use the following commands:
+```
+go test -v -coverpkg=./... -coverprofile=profile.cov ./...
+go tool cover -func profile.cov
+```
 
 ## Configuration
 
