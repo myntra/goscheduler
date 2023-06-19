@@ -24,11 +24,11 @@
         - [Check Schedule Status](#check-schedule-status)
         - [Customizable Callback](#customizable-callback)
     - [Use as Go Module](#use-as-go-module)
-        - [Register App](#register-app)
+        - [Client Onboarding (Go Module)](#register-app-go-module)
         - [Create One Time Schedule (Go Module)](#create-one-time-schedule-go-module)
         - [Create Cron Schedule (Go Module)](#create-cron-schedule-go-module)
-        - [Get Schedule](#get-schedule)
-        - [Customized Callback (Go Module)](#customized-callback-go-module)
+        - [Check Schedule Status (Go Module)](#get-schedule-go-module)
+        - [Customizable Callback (Go Module)](#customizable-callback-go-module)
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -514,7 +514,7 @@ func main() {
 ```
 ## Use as Go Module
 If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying it as a separate process.
-### Register App
+### Client Onboarding (Go Module)
 
 ```go
 package main
@@ -547,7 +547,7 @@ func main() {
  }
 ```
 
-### Create One Time Schedule
+### Create One Time Schedule (Go Module)
 
 ```go
 package main
@@ -591,7 +591,7 @@ func main() {
  }
 ```
 
-### Create Cron Schedule
+### Create Cron Schedule (Go Module)
 Make sure to create Athena app before creating any Cron Schedules
 ```go
 package main
@@ -635,7 +635,7 @@ func main() {
  }
 ```
 
-### Get Schedule
+### Check Schedule Status (Go Module)
 
 ```go
 package main
@@ -664,7 +664,7 @@ func main() {
  }
 ```
 
-### Customised Callback
+### Customizable Callback (Go Module)
 Using `FooBarCallback` defined earlier
 
 ```go
