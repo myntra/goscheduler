@@ -651,3 +651,48 @@ func main() {
 	fmt.Printf("Retrieved schedule: %+v\n", schedule)
  }
 ```
+
+#### Customised Callback
+Using `FooBarCallback` defined earlier
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/myntra/goscheduler/store"
+	sch "github.com/myntra/goscheduler/scheduler"
+)
+
+func main() {
+        // Create a map of callback factories
+	callbackFactories := map[string]sch.CallbackFactory{
+			"foobar": func() store.Callback { return &FooBarCallback{} },
+		}
+	
+	// Load the configuration file and create a Scheduler instance
+	scheduler := sch.FromFileWithCallbacks(callbackFactories, "config.json")
+	
+	// Create a sample schedule payload
+	schedule := store.Schedule{
+		AppId:        "test",
+		Payload:      "{}",
+		ScheduleTime: 1686748449,
+		Callback: FooBarCallback{
+			Type:    "foobar",
+			Details: "Custom details for FooBar callback",
+		},
+	}
+	
+	// Create the schedule using the CreateSchedule function
+	createdSchedule, err := CreateSchedule(schedule)
+	if err != nil {
+		fmt.Println("Error creating schedule:", err)
+		return
+	}
+	
+	// Print the created schedule
+	fmt.Println("Created schedule:", createdSchedule)
+}
+```
+
