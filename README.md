@@ -21,6 +21,11 @@
         - [Create cron schedule](#create-cron-schedule)
       - [Check Schedule Status](#check-schedule-status)
       - [Customizable Callback](#customizable-callback)
+      - [Use as go module](#use-as-go-module)
+      	- [Register App](#register-app)
+        - [Create One Time Schedule](#create-one-time-schedule)
+        - [Create Cron Schedule](#create-cron-schedule)
+        - [Get Schedule](#get-schedule)	
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -495,22 +500,23 @@ func main() {
 }
 ```
 ### Use as go module
-If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying as a separate process.
-Sample Example
+If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying it as a separate process.
+Sample Examples
+#### Register App
+
 ```go
 package main
 
 import (
 	"fmt"
 	"time"
-
-	"github.com/myntra/goScheduler/store"
-	"github.com/myntra/goScheduler/sch"
+	sch "github.com/example/goScheduler/scheduler"
+	"github.com/example/goScheduler/store"
 )
 
 func main() {
 	// Create a Scheduler instance using a configuration loaded from a file
-	scheduler := FromConfFile("config.json")
+	scheduler := sch.FromConfFile("config.json")
 	service := scheduler.Service
 
 	// Register App
@@ -526,14 +532,42 @@ func main() {
 		return
 	}
 	fmt.Printf("Registered app: %+v\n", registeredApp)
+ }
+```
 
-	// Create Schedule
+#### Create One Time Schedule
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	sch "github.com/example/goScheduler/scheduler"
+	"github.com/example/goScheduler/store"
+)
+
+func main() {
+	// Create a Scheduler instance using a configuration loaded from a file
+	scheduler := sch.FromConfFile("config.json")
+	service := scheduler.Service
+
+	// Create a Schedule with a sample HTTP Callback
 	createSchedulePayload := sch.Schedule{
-		AppId:      "my-app",
-		ScheduleId: "12345",
-		StartTime:  time.Date(2023, time.June, 14, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2023, time.June, 14, 10, 0, 0, 0, time.UTC),
-		IsRecurring: false,
+		AppId:        "test",
+		Payload:      "{}",
+		ScheduleTime: time.Now().Unix(),
+		Callback: sch.Callback{
+			Type: "http",
+			Details: sch.HTTPCallback{
+				Url: "http://127.0.0.1:8080/test/healthcheck",
+				Method: "GET",
+				Headers: map[string]string{
+					"Content-Type": "application/json",
+					"Accept":       "application/json",
+				},
+			},
+		},
 	}
 
 	createdSchedule, err := service.CreateSchedule(createSchedulePayload)
@@ -542,6 +576,69 @@ func main() {
 		return
 	}
 	fmt.Printf("Created schedule: %+v\n", createdSchedule)
+ }
+```
+
+#### Create Cron Schedule
+Make sure to create Athena app before creating any Cron Schedules
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	sch "github.com/example/goScheduler/scheduler"
+	"github.com/example/goScheduler/store"
+)
+
+func main() {
+	// Create a Scheduler instance using a configuration loaded from a file
+	scheduler := sch.FromConfFile("config.json")
+	service := scheduler.Service
+
+	// Create a Schedule with a sample HTTP Callback
+	createSchedulePayload := sch.Schedule{
+		AppId:        "test",
+		Payload:      "{}",
+		CronExpression: "* * * * *",
+		Callback: sch.Callback{
+			Type: "http",
+			Details: sch.HTTPCallback{
+				Url: "http://127.0.0.1:8080/test/healthcheck",
+				Method: "GET",
+				Headers: map[string]string{
+					"Content-Type": "application/json",
+					"Accept":       "application/json",
+				},
+			},
+		},
+	}
+
+	createdSchedule, err := service.CreateSchedule(createSchedulePayload)
+	if err != nil {
+		fmt.Printf("Failed to create schedule: %v\n", err)
+		return
+	}
+	fmt.Printf("Created schedule: %+v\n", createdSchedule)
+ }
+```
+
+#### Get Schedule
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	sch "github.com/example/goScheduler/scheduler"
+	"github.com/example/goScheduler/store"
+)
+
+func main() {
+	// Create a Scheduler instance using a configuration loaded from a file
+	scheduler := sch.FromConfFile("config.json")
+	service := scheduler.Service
 
 	// Get Schedule
 	scheduleUUID := "12345"
@@ -552,29 +649,5 @@ func main() {
 		return
 	}
 	fmt.Printf("Retrieved schedule: %+v\n", schedule)
-
-	// Activate App
-	appIDToActivate := "my-app"
-
-	err = service.ActivateApp(appIDToActivate)
-	if err != nil {
-		fmt.Printf("Failed to activate app: %v\n", err)
-		return
-	}
-	fmt.Printf("Activated app: %s\n", appIDToActivate)
-
-	// Deactivate App
-	appIDToDeactivate := "my-app"
-
-	err = service.DeactivateApp(appIDToDeactivate)
-	if err != nil {
-		fmt.Printf("Failed to deactivate app: %v\n", err)
-		return
-	}
-	fmt.Printf("Deactivated app: %s\n", appIDToDeactivate)
-}
+ }
 ```
-
-
-
-
