@@ -28,7 +28,8 @@
         - [Create One Time Schedule (Go Module)](#create-one-time-schedule-go-module)
         - [Create Cron Schedule (Go Module)](#create-cron-schedule-go-module)
         - [Check Schedule Status (Go Module)](#check-schedule-status-go-module)
-        - [Customizable Callback (Go Module)](#customizable-callback-go-module)
+        - [Customizable Callback (Go Module)](#customizable-callback-go-module)  
+6. [Use Cases](#use-cases)
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -134,7 +135,7 @@ PORT=8081 ./myss -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
-### Unit test
+### Unit tests
 To run unit tests for go scheduler, you can use the following commands:
 ```
 go test -v -coverpkg=./... -coverprofile=profile.cov ./...
@@ -709,3 +710,28 @@ func main() {
 }
 ```
 
+# Use Cases
+In general, goscheduler can be used to schedule jobs with customizable callbacks at scale. Some of the real-world use-cases are as follows
+- **Task Scheduling:** Schedule tasks or jobs to run at specific times or intervals, allowing for automated execution of recurring or time-sensitive operations.
+
+- **Event Triggering:** Schedule events to be triggered based on specific conditions or external triggers, enabling event-driven architectures and workflows.
+
+- **Reminder Services:** Create schedules for sending reminders or notifications to users for appointments, deadlines, or important events.
+
+- **Data Processing and ETL (Extract, Transform, Load):** Schedule data extraction, transformation, and loading processes to run at specified intervals or on-demand, facilitating data synchronization and integration.
+
+- **Report Generation:** Schedule the generation and delivery of reports, enabling periodic or on-demand reporting for business intelligence or analytics purposes.
+
+- **System Maintenance and Health Checks:** Schedule system maintenance tasks, such as database backups, log purging, or system health checks, to ensure smooth operations and proactive monitoring.
+
+- **Resource Allocation and Optimization:** Schedule resource allocation and optimization processes, such as capacity planning, load balancing, or resource provisioning, to optimize resource utilization and performance.
+
+- **Batch Processing:** Schedule batch processing tasks, such as data imports, batch updates, or batch computations, to efficiently process large volumes of data in scheduled batches.
+
+- **Workflow Orchestration:** Schedule and orchestrate complex workflows or business processes involving multiple interconnected tasks or stages, ensuring the sequential or parallel execution of tasks based on predefined schedules.
+
+- **Service Level Agreements (SLAs):** Schedule SLA checks for different stages in a workflow or business process, ensuring that tasks or activities are completed within predefined time constraints. If an SLA breach occurs, schedules can be triggered to take appropriate actions or notify stakeholders.
+
+- **Retries and Retry Strategies:** Handle failures or errors in asynchronous processing by scheduling retries with backoff strategies. The scheduler can automatically schedule retries based on configurable policies, allowing for resilient and fault-tolerant processing.
+
+- **Payment Reconciliation:** Schedule reconciliation tasks for payment processing systems to ensure the consistency and accuracy of transactions. For example, if a payment gateway experiences issues or timeouts, the scheduler can schedule a reconciliation task to fetch transaction status from the bank and initiate necessary actions like refunds.
