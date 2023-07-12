@@ -1,0 +1,139 @@
+{
+  "HttpPort": "8080",
+  "Cluster": {
+    "ClusterName": "goscheduler",
+    "Address": "<hostname>:9091",
+    "TChannelPort": "9091",
+    "BootStrapServers": [
+      "service1:9091","service2:9091"
+    ],
+    "JoinSize": 2,
+    "Log":{
+      "Enable": true
+    },
+    "PageSize":1000,
+    "NumRetry": 2,
+    "ReplicaPoints":2
+  },
+  "ClusterDB": {
+    "ClusterKeySpace": "cluster",
+    "DBConfig": {
+      "Hosts": "cassandra",
+      "Consistency": "ONE",
+      "VaultConfig": {
+        "Enabled": false,
+        "Username": "cassandra",
+        "Password": "cassandra"
+      },
+      "ConnectionPool":{
+        "InitialConnectTimeout" : 1000,
+        "ConnectTimeout" : 1000,
+        "MaxNumConnections" : 4
+      }
+    },
+    "EntityHistorySize": 1000
+  },
+  "ScheduleDB": {
+    "ScheduleKeySpace": "schedule_management",
+    "ScheduleTableName": "schedules",
+    "DBConfig": {
+      "Hosts": "cassandra",
+      "Consistency": "ONE",
+      "VaultConfig": {
+        "Enabled": false,
+        "Username": "cassandra",
+        "Password": "cassandra"
+      },
+      "ConnectionPool":{
+        "InitialConnectTimeout" : 1000,
+        "ConnectTimeout" : 1000,
+        "MaxNumConnections" : 4
+      }
+    }
+  },
+  "AppLevelConfiguration": {
+    "FiredScheduleRetentionPeriod": 10,
+    "FutureScheduleCreationPeriod": 30,
+    "HttpRetries": 3,
+    "HttpTimeout" : 2000,
+    "PayloadSize" : 1024
+  },
+  "NodeCrashReconcile" : {
+    "NeedsReconcile": true,
+    "ReconcileOffset":3
+  },
+  "MonitoringConfig": {
+    "Statsd": {
+      "Address": "54.251.41.202:8125",
+      "Prefix": "goscheduler",
+      "Enabled": false
+    }
+  },
+
+  "Poller": {
+    "Interval": 60,
+    "BufferSize": 1000,
+    "DefaultCount": 5
+  },
+  "HttpConnector": {
+    "Routines": 10,
+    "MaxRetry": 3,
+    "TimeoutMillis" : 2000
+  },
+  "StatusUpdateConfig": {
+    "Routines": 10
+  },
+  "AggregateSchedulesConfig": {
+    "BufferSize": 10,
+    "Routines": 1,
+    "BatchSize": 2,
+    "FlushPeriod": 60
+  },
+  "Newrelic":{
+    "LicenseKey" :"abcd",
+    "AppName": "local",
+    "Enable": false
+  },
+  "CronConfig": {
+    "App": "Athena",
+    "Window": 5,
+    "Routines": 10
+  },
+  "GoLimitConfig": {
+    "Host": "<hostname>",
+    "ClusterName": "golimit",
+    "RateLimitConfig": {
+      "RejectRequests": false,
+      "RateLimit": {
+        "CREATE_SCHEDULE": {
+          "default": {
+            "Window": 60,
+            "Threshold": 1200
+          }
+        },
+        "DELETE_SCHEDULE": {
+          "default": {
+            "Window": 60,
+            "Threshold": 1000
+          }
+        }
+      }
+    },
+    "TChannelPort": "2479",
+    "UnsyncedTimeLimitMS": 2000,
+    "UnsyncedCtrlLimit": 10,
+    "Seed": "service1:2479,service2:2479",
+    "Enable": true
+  },
+  "BulkActionConfig": {
+    "AppName": "goscheduler",
+    "EventName": "bulkAction",
+    "HistorySize": 2,
+    "BufferSize": 1000,
+    "Routines": 10
+  },
+  "CallBackCounter": {
+    "Offset": 2,
+    "Window": 2
+  }
+}

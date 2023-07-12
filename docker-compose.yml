@@ -1,0 +1,48 @@
+version: '3'
+services:
+  service1:
+    build:
+      context: .
+      dockerfile: ./docker/node1/Dockerfile
+      labels:
+        version: 2.6.0
+    tty: true
+    ports:
+      - "8080:8080"
+    depends_on:
+      - cassandra
+    links:
+      - cassandra
+      - service2
+    environment:
+      - CASSANDRA_HOST=cassandra
+
+  service2:
+    build:
+      context: .
+      dockerfile: ./docker/node2/Dockerfile
+      labels:
+        version: 2.6.0
+    tty: true
+    ports:
+      - "8081:8081"
+    depends_on:
+      - cassandra
+    environment:
+      - CASSANDRA_HOST=cassandra
+
+  cassandra:
+    image: cassandra:4.0
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=Test Cluster
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    command: ["/bin/sh", "-c", "sed -i 's/enable_materialized_views:.*$$/enable_materialized_views: true/g' /etc/cassandra/cassandra.yaml && exec /usr/local/bin/docker-entrypoint.sh cassandra -f"]
+
+volumes:
+  cassandra_data:
