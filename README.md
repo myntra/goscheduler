@@ -752,9 +752,8 @@ Common Header for all the below APIs:
 ## 1. HealthCheck API
 This API is used to perform a health check or status check for the server.It checks whether the service is up and running.
 
-This function provides a simple health check endpoint for the server, returning different responses based on the `inLB` variable to indicate the server's status to the client.
+This function provides a simple health check endpoint for the server, indicates the server's status to the client.
 
-**WIP** : inLB is not present anymore, this implementation will change, change the description after that
 ### Method: GET
 ```
 http://localhost:8080/goscheduler/healthcheck
@@ -1377,8 +1376,8 @@ http://localhost:8080/goscheduler/apps/revamp/schedules
 | size  | number of results we want to fetch             | int           | 5               |
 | start_time  | start time of the range to fetch all schedules | string        | 2023-06-28 10:00:00              |
 | end_time  | end time of the range to fetch all schedules   | string        | 2023-07-02 12:00:00              |
-| continuationToken  | ***                                            | string        | 19000474657374000004000000 |
-| continuationStartTime  | ***                                            | long             | 1687930200               |
+| continuationToken  | token to fetch the next set of schedules       | string        | 19000474657374000004000000 |
+| continuationStartTime  | startTime from where we continue fetching next set of schedules | long             | 1687930200               |
 | status  | status type of the schedules we want to fetch  | string        | ERROR               |
 
 
