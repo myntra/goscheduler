@@ -131,8 +131,8 @@ go build .
 ```
 5. Start multiple instances of service using following commands:
 ```shell
-PORT=8080 ./myss -h 127.0.0.1 -p 9091
-PORT=8081 ./myss -h 127.0.0.1 -p 9092
+PORT=8080 ./goscheduler -h 127.0.0.1 -p 9091
+PORT=8081 ./goscheduler -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
@@ -167,7 +167,7 @@ For any schedule creation, you need to register the app associated with it first
 Use the following API to create an app:
 
 ```bash
-curl --location 'http://localhost:8080/myss/app' \
+curl --location 'http://localhost:8080/goscheduler/app' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -205,7 +205,7 @@ The API will respond with the created app's details in JSON format.
 ### Schedule Creation
 #### Create One Time Schedule
 ```bash
-curl --location 'http://localhost:8080/myss/schedule' \
+curl --location 'http://localhost:8080/goscheduler/schedule' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -214,7 +214,7 @@ curl --location 'http://localhost:8080/myss/schedule' \
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -254,7 +254,7 @@ Example response body:
         "callback": {
             "type": "http",
             "details": {
-                "url": "http://127.0.0.1:8080/myss/healthcheck",
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                 "method": "GET",
                 "headers": {
                     "Content-Type": "application/json",
@@ -267,7 +267,7 @@ Example response body:
 ```
 #### Create Cron Schedule
 ```bash
-curl --location 'http://localhost:8080/myss/schedule' \
+curl --location 'http://localhost:8080/goscheduler/schedule' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -276,7 +276,7 @@ curl --location 'http://localhost:8080/myss/schedule' \
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -352,7 +352,7 @@ Example response body:
             "callback": {
                 "type": "http",
                 "details": {
-                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                     "method": "GET",
                     "headers": {
                         "Content-Type": "application/json",
@@ -369,7 +369,7 @@ Example response body:
 
 ### Check Schedule Status
 ```
-curl --location 'http://localhost:8080/myss/schedule/a675115c-0a0e-11ee-bebb-acde48001122' \
+curl --location 'http://localhost:8080/goscheduler/schedule/a675115c-0a0e-11ee-bebb-acde48001122' \
 --header 'Accept: application/json'
 ```
 
@@ -395,7 +395,7 @@ Example response body:
             "callback": {
                 "type": "http",
                 "details": {
-                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                     "method": "GET",
                     "headers": {
                         "Accept": "application/json",
@@ -737,7 +737,17 @@ In general, goscheduler can be used to schedule jobs with customizable callbacks
 
 - **Payment Reconciliation:** Schedule reconciliation tasks for payment processing systems to ensure the consistency and accuracy of transactions. For example, if a payment gateway experiences issues or timeouts, the scheduler can schedule a reconciliation task to fetch transaction status from the bank and initiate necessary actions like refunds.
 
-# API Contract
+# GoScheduler API Contract
+
+Common Header for all the below APIs:
+
+### Headers
+
+|Header-Type|Value|
+|---|---|
+|Accept|application/json|
+|Content-Type|application/json
+
 
 ## 1. HealthCheck API
 This API is used to perform a health check or status check for the server.It checks whether the service is up and running.
@@ -747,13 +757,13 @@ This function provides a simple health check endpoint for the server, returning 
 **WIP** : inLB is not present anymore, this implementation will change, change the description after that
 ### Method: GET
 ```
-http://{{myss.host}}/myss/healthcheck
+http://localhost:8080/goscheduler/healthcheck
 ```
 
 ### Curl
 
-```json
-curl --location --request GET 'http://localhost:8080/myss/healthcheck'
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/healthcheck'
 ```
 
 ### Sample Success Response: 200
@@ -769,33 +779,32 @@ curl --location --request GET 'http://localhost:8080/myss/healthcheck'
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
 ## 2. Register App
 This API handles the registration of an application. It receives a JSON payload containing the application information, inserts the application and its entities into the database, and returns an appropriate response indicating the registration status.
 
 
-1. Check if the `AppId` field in the `input` is empty. If it is empty, it records the registration failure and returns an appropriate response indicating that the AppId cannot be empty.
+1. Check if the `AppId` field in the `payload` is empty. If it is empty, it records the registration failure and returns an appropriate response indicating that the AppId cannot be empty.
 
-2. If the `Partitions` field in the `input` is zero, it assigns the default count from the service's configuration to `input.Partitions`.
+2. If the `Partitions` field in the `payload` is zero, it assigns the default count from the service's configuration.
+3. If the `active` parameter is "TRUE", it represents that it is an active app and if it is "FALSE", it represents a deactivated app.
+
 ### Method: POST
->```
->http://{{myss.host}}/myss/apps
->```
+```
+http://localhost:8080/goscheduler/apps
+```
 ### Body (**raw**)
 
 ```json
 {
 	"appId": "revamp",
 	"partitions": 2,
-    "active": true
+        "active": true
 }
 ```
 ### Curl
 
-```json
-curl --location --request POST 'http://localhost:8080/myss/apps' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps' \
 --header 'Content-Type: application/json' \
 --data-raw '{
 	"appId": "athena",
@@ -832,40 +841,29 @@ curl --location --request POST 'http://localhost:8080/myss/apps' \
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Get Apps
-This API retrieves information about multiple apps based on "appId" query parameter. If there is no "appId" present in the request, it retrieves all the apps with its status.
+## 3. Get Apps API
+This API retrieves information about multiple apps based on "app_id" query parameter. If there is no "app_id" present in the request, it retrieves all the apps with its status.
 
 If the status of "active" parameter is "TRUE", it represents that it is an active app and if it is "FALSE", it represents a deactivated app.
 ### Method: GET
->```
->http://{{myss.host}}/myss/apps
->```
+```
+http://localhost:8080/goscheduler/apps
+```
 
-If we want to retrieve information about a specific app, we can add the "appId" parameter as a query param.
+If we want to retrieve information about a specific app, we can add the "app_id" parameter as a query param.
 
 
 ### Query Params
 
-|Param|value|
-|---|---|
-|app_id|revamp|
-
-
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Accept|application/json|
-|Content-Type|application/json
+|Param| Description                                              | Type of Value |Sample value|
+|---|----------------------------------------------------------|--------|---|
+|app_id| The ID of the app for which the cron schedule is created | String | revamp |
 
 
 ### curl
 
-```json
-curl --location --request GET 'http://localhost:8080/myss/apps?app_id=revamp' \
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/apps?app_id=revamp' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
 --data-raw ''
@@ -897,10 +895,7 @@ curl --location --request GET 'http://localhost:8080/myss/apps?app_id=revamp' \
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Create Schedule HttpCallback
+## 4. Create Schedule HttpCallback API
 The purpose of this API is to create a schedule based on the data provided in the request body.
 
 The `Post` function handles the creation of a schedule by validating the input, fetching the necessary app information, persisting the schedule, and returning the appropriate response based on the outcome of these operations.
@@ -912,15 +907,10 @@ Based on the appId present in the payload of the API, it handles different error
 3. If the **app ID is empty -** it records a create failure, handles the **error indicating an invalid app ID.**
 4. If the **app is not active -** it records a create failure, handles **the error indicating a deactivated app.
 
-**If all the above checks pass** ,the app ID in the input schedule is set to the retrieved app's ID.  
-It generates a new UUID for the `ScheduleId` field of the schedule.  
-It then creates the schedule in the `scheduleDao`. If there is an error, it records a create failure, handles the data persistence failure error, and returns an appropriate response.
-
-If the schedule is created successfully, it records a create success, logs a success message, constructs a success status, and encodes the response body with the created schedule and status.
 ### Method: POST
->```
->http://{{myss.host}}/myss/schedules
->```
+```
+http://localhost:8080/goscheduler/schedules
+```
 
 ### Body (**raw**)
 
@@ -932,7 +922,7 @@ If the schedule is created successfully, it records a create success, logs a suc
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -944,8 +934,8 @@ If the schedule is created successfully, it records a create success, logs a suc
 ```
 ### Curl
 
-```json
-curl --location --request POST 'http://localhost:8080/myss/schedules' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
 --data-raw '{
     "appId": "revamp",
     "payload": "{}",
@@ -953,7 +943,7 @@ curl --location --request POST 'http://localhost:8080/myss/schedules' \
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -984,7 +974,7 @@ curl --location --request POST 'http://localhost:8080/myss/schedules' \
             "partitionId": 1,
             "scheduleGroup": 2529772920,
             "httpCallback": {
-                "url": "http://127.0.0.1:8080/myss/healthcheck",
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                 "method": "GET",
                 "headers": {
                     "Accept": "application/json",
@@ -1008,10 +998,7 @@ curl --location --request POST 'http://localhost:8080/myss/schedules' \
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Create Cron-Schedule HttpCallback
+## 5. Create Cron-Schedule API
 
 The purpose of this API is to create a cron schedule based on the cron expression provided in the request body.
 
@@ -1019,7 +1006,7 @@ To create a cron schedule, you will first have to register the "Athena" app.
 
 ### Method: POST
 ```
-http://{{myss.host}}/myss/schedules
+http://localhost:8080/goscheduler/schedules
 ```
 ### Body (**raw**)
 
@@ -1031,7 +1018,7 @@ http://{{myss.host}}/myss/schedules
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -1043,18 +1030,18 @@ http://{{myss.host}}/myss/schedules
 ```
 
 ### curl
-```json
-curl --location --request POST 'http://localhost:8080/myss/schedules' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-    "appId": "athena",
+    "appId": "Athena",
     "payload": "{}",
     "cronExpression": "*/5 * * * *",
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -1065,12 +1052,37 @@ curl --location --request POST 'http://localhost:8080/myss/schedules' \
 }'
 ```
 
-
-**WIP** - Paste the success response (take pull of another branch and then run this curl)
-
 ### Sample Success Response: 200
-```
-Success
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "167233ef-1fce-11ee-ba66-0242ac120004",
+            "payload": "{}",
+            "appId": "Athena",
+            "partitionId": 0,
+            "callback": {
+                "type": "http",
+                "details": {
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                    "method": "GET",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                }
+            },
+            "cronExpression": "*/6 * * * *",
+            "status": "SCHEDULED"
+        }
+    }
+}
 ```
 
 ### Sample Error Response: 400
@@ -1084,64 +1096,94 @@ Success
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Get Cron-Schedules HttpCallback
-This HTTP endpoint retrieves cron schedules based on the provided parameters - appId and status.
-
-Create a `Status` object with the appropriate success code, message, and type.
+## 6. Get Cron-Schedules API
+This HTTP endpoint retrieves cron schedules based on the provided parameters - app_id and status.
 
 The various values of "STATUS" can be -
 
-"SCHEDULED" , "DELETED", "COMPLETED", "SUCCESS", "FAILURE", "MISS", "ERROR", "reconcile", "delete"
-
-**WIP** - Get the correct response from another branch
+|Status|
+|----|
+|SCHEDULED|
+|DELETED|
+|COMPLETED|
+|SUCCESS|
+|FAILURE|
+|MISS|
+|ERROR|
 
 ### Method: POST
 ```
-http://{{myss.host}}/myss/crons/schedules?app_id=revamp
+http://localhost:8080/goscheduler/crons/schedules?app_id=revamp
 ```
-
-
 ### Query Params
 
-|Param|value|
-|---|---|
-|app_id|revamp|
+
+|Param| Description                                              | Type of Value | Example         |
+|---|----------------------------------------------------------|--------|-----------------|
+|app_id| The ID of the app for which the cron schedule is created | string | revamp |
 
 ### curl
-```json
-curl --location --request GET 'http://localhost:8080/myss/crons/schedules?app_id=revamp&status=SCHEDULED' \
---header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/crons/schedules?app_id=revamp&status=SCHEDULED' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
 
 
 ### Sample Success Response:
 ```json
-null
+{
+  "status": {
+    "statusCode": 200,
+    "statusMessage": "Success",
+    "statusType": "Success",
+    "totalCount": 0
+  },
+  "data": [
+    {
+      "scheduleId": "167233ef-1fce-11ee-ba66-0242ac120004",
+      "payload": "{}",
+      "appId": "revamp",
+      "partitionId": 0,
+      "callback": {
+        "type": "http",
+        "details": {
+          "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+          "method": "GET",
+          "headers": {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          }
+        }
+      },
+      "cronExpression": "*/6 * * * *",
+      "status": "SCHEDULED"
+    }
+  ]
+}
+```
+### Sample Error response
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "No cron schedules found",
+        "statusType": "Fail"
+    }
+}
 ```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Get Schedule
+## 7. Get Schedule API
 This API retrieves a schedule by its ID, handles different retrieval scenarios, and returns the appropriate response with the retrieved schedule or error information.
 
 ### Method: GET
 ```
-http://localhost:8080/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
 ```
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
 
 ### Curl
 
-```json
-curl --location --request GET 'http://localhost:8080/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
@@ -1161,16 +1203,18 @@ curl --location --request GET 'http://localhost:8080/myss/schedules/1497b35c-1a2
             "payload": "{}",
             "appId": "revamp",
             "scheduleTime": 2529772970,
-            "Ttl": 0,
             "partitionId": 1,
             "scheduleGroup": 2529772920,
-            "httpCallback": {
-                "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "callback": {
+              "type": "http",
+              "details": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                 "method": "GET",
                 "headers": {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
                 }
+              }
             },
             "status": "SCHEDULED"
         }
@@ -1189,41 +1233,109 @@ curl --location --request GET 'http://localhost:8080/myss/schedules/1497b35c-1a2
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Get Schedules with all runs
+## 8. Get Schedules with all runs API
 This API retrieves the runs of a schedule (execution instances) of a schedule based on the schedule's ID. It handles different retrieval scenarios, and returns the appropriate response with the retrieved runs or error information.
 
-If no runs are found (empty `schedules`), it logs an info message, records the successful retrieval, handles the data not found error, and returns an appropriate response.
+If no runs are found, it logs an info message, records the successful retrieval, handles the data not found error, and returns an appropriate response.
 
 ### Method: GET
 ```
-http://{{myss.host}}/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1
 ```
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
 
 ### Query Params
 
-|Param|value|
-|---|---|
-|when|future|
-|size|1|
+|Param| Description                         | Type of Value | Example       |
+|---|-------------------------------------|---------------|---------------|
+|when| time-frame                          | string        | past/future/all |
+|size| number of results we want to fetch| int| 1             |
 
 ### Curl
-```json
-curl --location --request GET 'http://localhost:8080/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1' \
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
 --data-raw ''
 ```
 
 ### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 11
+    },
+    "data": {
+        "schedules": [
+            {
+                "scheduleId": "26631a1b-1fd6-11ee-ba9c-0242ac120004",
+                "payload": "{}",
+                "appId": "revamp",
+                "scheduleTime": 1689071760,
+                "partitionId": 0,
+                "scheduleGroup": 1689071760,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SCHEDULED"
+            },
+            {
+                "scheduleId": "4fda1178-1fd5-11ee-ba96-0242ac120004",
+                "payload": "{}",
+                "appId": "revamp",
+                "scheduleTime": 1689071400,
+                "partitionId": 0,
+                "scheduleGroup": 1689071400,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "FAILURE",
+                "errorMessage": "404 Not Found"
+            },
+          {
+            "scheduleId": "2c0df520-1fce-11ee-ba68-0242ac120004",
+            "payload": "{}",
+            "appId": "revamp",
+            "scheduleTime": 1689068160,
+            "partitionId": 0,
+            "scheduleGroup": 1689068160,
+            "callback": {
+              "type": "http",
+              "details": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                "method": "GET",
+                "headers": {
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
+                }
+              }
+            },
+            "status": "MISS",
+            "errorMessage": "Failed to make a callback"
+          }
+        ],
+      "continuationToken": ""
+    }
+}
+```
 
 ### Sample Error Response: 404
 ```json
@@ -1236,10 +1348,7 @@ curl --location --request GET 'http://localhost:8080/myss/schedules/1497b35c-1a2
 }
 ```
 
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Get Paginated Schedules by appId
+## 9. Get Paginated Schedules by appId API
 This API get all the schedules associated with a specific application ID based on time range and status.
 
 It throws an error if the application Id is not registered, or if the application details are not fetched successfully.
@@ -1258,32 +1367,26 @@ It handles different scenarios based on the parsed query parameters:
 
 ### Method: GET
 ```
-http://{{myss.host}}/myss/apps/revamp/schedules
+http://localhost:8080/goscheduler/apps/revamp/schedules
 ```
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
-
-
 ### Query Params
 
-|Param|value|
-|---|---|
-|size|5|
-|start_time|2023-06-28 10:00:00|
-|continuationToken|19000474657374000004000000050000080000018900a412a000120010820518ae157a11eea2eaacde48001122f07ffffffbf07ffffffe|
-|continuationStartTime|1687930200|
-|status|ERROR|
-|end_time|2023-07-02 12:00:00|
+
+| Param | Description                                    | Type of Value | Example         |
+|-------|------------------------------------------------|---------------|-----------------|
+| size  | number of results we want to fetch             | int           | 5               |
+| start_time  | start time of the range to fetch all schedules | string        | 2023-06-28 10:00:00              |
+| end_time  | end time of the range to fetch all schedules   | string        | 2023-07-02 12:00:00              |
+| continuationToken  | ***                                            | string        | 19000474657374000004000000 |
+| continuationStartTime  | ***                                            | long             | 1687930200               |
+| status  | status type of the schedules we want to fetch  | string        | ERROR               |
+
 
 **Note** : ContinuationToken and continuationStartTime are generated after the first call, its not needed for the first time api call.
 
 ### Curl
-```json
-curl --location --request GET 'http://localhost:8080/myss/apps/revamp/schedules?size=5&start_time=2023-06-28 10:00:00&status=ERROR&end_time=2023-07-02 12:00:00' \
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/schedules?size=5&start_time=2023-06-28 10:00:00&status=ERROR&end_time=2023-07-02 12:00:00' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
@@ -1317,24 +1420,16 @@ curl --location --request GET 'http://localhost:8080/myss/apps/revamp/schedules?
 }
 ```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Deactivate App
+## 10. Deactivate App API
 This API handles the deactivation of an application by updating its active status in the database, deactivating the application in the supervisor, and returning an appropriate response indicating the deactivation status.
 ### Method: POST
 ```
-http://{{myss.host}}/myss/apps/revamp/deactivate
+http://localhost:8080/goscheduler/apps/revamp/deactivate
 ```
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
 
 ### Curl
-```json
-curl --location --request POST 'http://localhost:8080/myss/apps/revamp/deactivate' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/deactivate' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
@@ -1365,26 +1460,18 @@ curl --location --request POST 'http://localhost:8080/myss/apps/revamp/deactivat
 }
 ```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Activate App
+## 11. Activate App API
 This API handles the activation of an application by updating its active status in the database, activating the application in the supervisor, and returning an appropriate response indicating the activation status.
 
 It checks if the `Active` field of the application is already set to `true`. If it is `true`, it records the activation failure and returns an appropriate response indicating that the app is already activated.
 ### Method: POST
 ```
-http://{{myss.host}}/myss/apps/revamp/activate
+http://localhost:8080/goscheduler/apps/revamp/activate
 ```
-### Headers
-
-|Content-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
 
 ### Curl
-```json
-curl --location --request POST 'http://localhost:8080/myss/apps/revamp/activate' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/activate' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
@@ -1426,41 +1513,34 @@ curl --location --request POST 'http://localhost:8080/myss/apps/revamp/activate'
 }
 ```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Reconcile/Bulk Action
+## 12. Reconcile/Bulk Action API
 This API gets all the schedules of an app in bulk based on time range and status.
 
 This HTTP endpoint that handles bulk actions for schedules of an app based on status.
 
 Based on `actionType`, it performs the following actions:
 
-- If the `actionType` is `Reconcile` or `Delete`, proceed with the bulk action. If it is `Reconcile`, it retriggers all the schedules of an app again. If it is `Delete`, it deletes all the schedules of the app in bulk.
+- If it is `reconcile`, it retriggers all the schedules of an app again. If it is `Delete`, it deletes all the schedules of the app in bulk.
 - If the `actionType` is invalid, handle the error and return an appropriate response indicating the invalid action type.
 
 It parses the request to extract the time range and status parameters. The end time of the time range should be before the start time and the duration of the time range should not exceed the maximum allowed period.
 ### Method: POST
 ```
-http://{{myss.host}}/myss/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00
+http://localhost:8080/goscheduler/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00
 ```
-### Headers
-
-|Header-Type|Value|
-|---|---|
-|Content-Type|application/json|
-|Accept|application/json|
 
 ### Query Params
 
-|Param|value|
-|---|---|
-|status|SUCCESS|
-|start_time|2023-02-06%2010:47:00|
-|end_time|2023-02-06%2011:50:00|
+
+| Param | Description                                   | Type of Value | Example             |
+|-------|-----------------------------------------------|---------------|---------------------|
+| status  | status type of the schedules we want to fetch | string        | SUCCESS             |
+| start_time  | start time of the range to fetch all schedules | string        | 2023-02-06 10:47:00 |
+| end_time  | end time of the range to fetch all schedules  | string        | 2023-02-06 11:50:00 |
 
 ### Curl
-```json
-curl --location --request POST 'http://localhost:8080/myss/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00' \
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
@@ -1479,28 +1559,19 @@ curl --location --request POST 'http://localhost:8080/myss/apps/revamp/bulk-acti
 }
 ```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
-
-## End-point: Delete Schedule
+## 13. Delete Schedule API
 This API cancels a schedule based on its ID, handles different deletion scenarios, and returns the appropriate response with the deleted schedule or error information.
 
-Handle different scenarios based on the deletion of the schedule:
-
-1. If the deletion is successful (indicated by a `nil` error), it logs a success message, records the successful deletion, constructs a success status, and encodes the response body with the deleted schedule and status.
-2. If the schedule with the given ID is not found (indicated by the `gocql.ErrNotFound` error), it logs a message, records the successful deletion, handles the data not found error, and returns an appropriate response.
-3. If there is an error while deleting the schedule, it logs an error message, records the failed deletion, handles the data persistence failure error, and returns an appropriate response.
-
-
-After a particular schedule is deleted, if we run the GET Schedules API (/myss/schedules/{scheduleId}), it will give a response where the "active" parameter of the schedule is set to "FALSE".
+After a particular schedule is deleted, if we run the GET Schedules API (/goscheduler/schedules/{scheduleId}), it will give a response where the "active" parameter of the schedule is set to "FALSE".
 ### Method: DELETE
 ```
-http://{{myss.host}}/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
 ```
 
 ### Curl
 
-```json
-curl --location --request DELETE 'http://localhost:8080/myss/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
+```bash
+curl --location --request DELETE 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
 
@@ -1523,7 +1594,7 @@ curl --location --request DELETE 'http://localhost:8080/myss/schedules/1497b35c-
             "partitionId": 1,
             "scheduleGroup": 2529772920,
             "httpCallback": {
-                "url": "http://127.0.0.1:8080/myss/healthcheck",
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                 "method": "GET",
                 "headers": {
                     "Accept": "application/json",
@@ -1534,7 +1605,4 @@ curl --location --request DELETE 'http://localhost:8080/myss/schedules/1497b35c-
     }
 }
 ```
-
-
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
 ___________________________________________________
