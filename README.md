@@ -797,7 +797,7 @@ http://localhost:8080/goscheduler/apps
 {
 	"appId": "revamp",
 	"partitions": 2,
-        "active": true
+    "active": true
 }
 ```
 ### Curl
@@ -859,7 +859,7 @@ If we want to retrieve information about a specific app, we can add the "app_id"
 |app_id| The ID of the app for which the schedule is created | String | revamp |
 
 
-### curl
+### Curl
 
 ```bash
 curl --location --request GET 'http://localhost:8080/goscheduler/apps?app_id=revamp' \
@@ -953,7 +953,7 @@ curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
 
 ### Sample Success Response: 200
 
-```
+```json
 {
     "status": {
         "statusCode": 201,
