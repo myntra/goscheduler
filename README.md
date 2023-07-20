@@ -854,9 +854,9 @@ If we want to retrieve information about a specific app, we can add the "app_id"
 
 ### Query Params
 
-|Param| Description                                              | Type of Value |Sample value|
-|---|----------------------------------------------------------|--------|---|
-|app_id| The ID of the app for which the cron schedule is created | String | revamp |
+|Param| Description                                             | Type of Value |Sample value|
+|---|---------------------------------------------------------|--------|---|
+|app_id| The ID of the app for which the schedule is created | String | revamp |
 
 
 ### curl
@@ -895,16 +895,14 @@ curl --location --request GET 'http://localhost:8080/goscheduler/apps?app_id=rev
 ```
 
 ## 4. Create Schedule HttpCallback API
-The purpose of this API is to create a schedule based on the data provided in the request body.
-
-The `Post` function handles the creation of a schedule by validating the input, fetching the necessary app information, persisting the schedule, and returning the appropriate response based on the outcome of these operations.
+This API creates a schedule based on the data provided in the request body.
 
 Based on the appId present in the payload of the API, it handles different error scenarios.
 
 1. **If the app is not found** - It records a create failure, handles the **error indicating an invalid app ID**, and returns an appropriate response.
 2. If there is **an error while fetching the app -** it records a create failure, **handles the data fetch failure error.**
 3. If the **app ID is empty -** it records a create failure, handles the **error indicating an invalid app ID.**
-4. If the **app is not active -** it records a create failure, handles **the error indicating a deactivated app.
+4. If the **app is not active -** it records a create failure, handles **the error indicating a deactivated app.**
 
 ### Method: POST
 ```
@@ -1001,7 +999,7 @@ curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
 
 The purpose of this API is to create a cron schedule based on the cron expression provided in the request body.
 
-To create a cron schedule, you will first have to register the "Athena" app.
+To create a cron schedule, you will first have to register the **Athena** app.
 
 ### Method: POST
 ```
@@ -1100,15 +1098,13 @@ This HTTP endpoint retrieves cron schedules based on the provided parameters - a
 
 The various values of "STATUS" can be -
 
-|Status|
-|----|
-|SCHEDULED|
-|DELETED|
-|COMPLETED|
-|SUCCESS|
-|FAILURE|
-|MISS|
-|ERROR|
+|Status| Description |
+|----|-------------|
+|SCHEDULED|Represents the schedule is scheduled |
+|DELETED| Represents the schedule is deleted |
+|SUCCESS| Represents the schedule is successfully run | 
+|FAILURE| Represents the schedule is failed |
+|MISS| Represents the schedule was not triggered |
 
 ### Method: POST
 ```
@@ -1233,7 +1229,8 @@ curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b
 ```
 
 ## 8. Get Schedules with all runs API
-This API retrieves the runs of a schedule (execution instances) of a schedule based on the schedule's ID. It handles different retrieval scenarios, and returns the appropriate response with the retrieved runs or error information.
+This API retrieves the runs of a schedule (execution instances) of a schedule based on the schedule's ID. 
+It handles different retrieval scenarios, and returns the appropriate response with the retrieved runs or error information.
 
 If no runs are found, it logs an info message, records the successful retrieval, handles the data not found error, and returns an appropriate response.
 
@@ -1244,10 +1241,10 @@ http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
 
 ### Query Params
 
-|Param| Description                         | Type of Value | Example       |
-|---|-------------------------------------|---------------|---------------|
-|when| time-frame                          | string        | past/future/all |
-|size| number of results we want to fetch| int| 1             |
+|Param| Description                         | Type of Value | Example     |
+|---|-------------------------------------|---------------|-------------|
+|when| time-frame                          | string        | past/future |
+|size| number of results we want to fetch| int| 1           |
 
 ### Curl
 ```bash
@@ -1348,12 +1345,9 @@ curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b
 ```
 
 ## 9. Get Paginated Schedules by appId API
-This API get all the schedules associated with a specific application ID based on time range and status.
+This API get all the schedules associated with a specific application ID based on time range and status in a paginated way.
 
 It throws an error if the application Id is not registered, or if the application details are not fetched successfully.
-
-If the application details are successfully retrieved, the function proceeds to parse query parameters (`size`, `status`, `timeRange`, `pageState`, `continuationStartTime`) using the `parse` function.
-
 
 It handles different scenarios based on the parsed query parameters:
 
@@ -1381,11 +1375,11 @@ http://localhost:8080/goscheduler/apps/revamp/schedules
 | status  | status type of the schedules we want to fetch  | string        | ERROR               |
 
 
-**Note** : ContinuationToken and continuationStartTime are generated after the first call, its not needed for the first time api call.
+**Note** : ContinuationToken and continuationStartTime are generated after the first call, it's not needed for the first time api call.
 
 ### Curl
 ```bash
-curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/schedules?size=5&start_time=2023-06-28 10:00:00&status=ERROR&end_time=2023-07-02 12:00:00' \
+curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/schedules?size=5&start_time=2023-06-28 10:00:00&status=SUCCESS&end_time=2023-07-02 12:00:00' \
 --header 'Accept: application/json' \
 --header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
 ```
@@ -1420,7 +1414,8 @@ curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/sch
 ```
 
 ## 10. Deactivate App API
-This API handles the deactivation of an application by updating its active status in the database, deactivating the application in the supervisor, and returning an appropriate response indicating the deactivation status.
+This API handles the deactivation of an application by updating its active status to "false" in the database, deactivating the application in the supervisor, and returning an appropriate response indicating the deactivation status.
+On deactivation, all the pollers will be stopped, so no new schedules could be created and no schedules will be triggered.
 ### Method: POST
 ```
 http://localhost:8080/goscheduler/apps/revamp/deactivate
@@ -1560,8 +1555,9 @@ curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/bu
 
 ## 13. Delete Schedule API
 This API cancels a schedule based on its ID, handles different deletion scenarios, and returns the appropriate response with the deleted schedule or error information.
+On deleting a cron schedule, all the children runs will also be deleted.
 
-After a particular schedule is deleted, if we run the GET Schedules API (/goscheduler/schedules/{scheduleId}), it will give a response where the "active" parameter of the schedule is set to "FALSE".
+After a particular schedule is deleted, if we run this delete schedule API again, it would give "No Schedules found".
 ### Method: DELETE
 ```
 http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
