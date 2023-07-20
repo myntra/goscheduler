@@ -1392,12 +1392,53 @@ curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/sch
         "statusCode": 200,
         "statusMessage": "Success",
         "statusType": "Success",
-        "totalCount": 0
+        "totalCount": 2
     },
     "data": {
-        "schedules": null,
-        "continuationToken": "",
-        "continuationStartTime": 1648808400
+        "schedules": [
+            {
+                "scheduleId": "d5e0fd64-26bc-11ee-8f1a-aa665a372253",
+                "payload": "{}",
+                "appId": "test",
+                "scheduleTime": 1689830381,
+                "partitionId": 0,
+                "scheduleGroup": 1689830340,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SUCCESS"
+            },
+            {
+                "scheduleId": "cf8e385a-26bc-11ee-8f15-aa665a372253",
+                "payload": "{}",
+                "appId": "test",
+                "scheduleTime": 1689830381,
+                "partitionId": 0,
+                "scheduleGroup": 1689830340,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SUCCESS"
+            }
+        ],
+        "continuationToken": "19000474657374000004000000000000080000018971bcb5a000120010cf8e385a26bc11ee8f15aa665a372253f07ffffffdf07ffffffd",
+        "continuationStartTime": 1689827400
     }
 }
 ```
@@ -1557,7 +1598,7 @@ curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/bu
 This API cancels a schedule based on its ID, handles different deletion scenarios, and returns the appropriate response with the deleted schedule or error information.
 On deleting a cron schedule, all the children runs will also be deleted.
 
-After a particular schedule is deleted, if we run this delete schedule API again, it would give "No Schedules found".
+After a particular schedule is deleted, if we run this delete schedule API again, it would give "Not found".
 ### Method: DELETE
 ```
 http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
@@ -1597,6 +1638,18 @@ curl --location --request DELETE 'http://localhost:8080/goscheduler/schedules/14
                 }
             }
         }
+    }
+}
+```
+
+### Sample Error Response: 404
+
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "not found",
+        "statusType": "Fail"
     }
 }
 ```
