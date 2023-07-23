@@ -30,6 +30,7 @@
         - [Check Schedule Status (Go Module)](#check-schedule-status-go-module)
         - [Customizable Callback (Go Module)](#customizable-callback-go-module)  
 6. [Use Cases](#use-cases)
+7. [API Contract](#api-contract)
  
 # Introduction
 GoScheduler, also known as Myntra's Scheduler Service (MySS), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs. Further information about GoScheduler can be found in this [article](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c).
@@ -130,8 +131,8 @@ go build .
 ```
 5. Start multiple instances of service using following commands:
 ```shell
-PORT=8080 ./myss -h 127.0.0.1 -p 9091
-PORT=8081 ./myss -h 127.0.0.1 -p 9092
+PORT=8080 ./goscheduler -h 127.0.0.1 -p 9091
+PORT=8081 ./goscheduler -h 127.0.0.1 -p 9092
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
@@ -166,7 +167,7 @@ For any schedule creation, you need to register the app associated with it first
 Use the following API to create an app:
 
 ```bash
-curl --location 'http://localhost:8080/myss/app' \
+curl --location 'http://localhost:8080/goscheduler/app' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -204,7 +205,7 @@ The API will respond with the created app's details in JSON format.
 ### Schedule Creation
 #### Create One Time Schedule
 ```bash
-curl --location 'http://localhost:8080/myss/schedule' \
+curl --location 'http://localhost:8080/goscheduler/schedule' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -213,7 +214,7 @@ curl --location 'http://localhost:8080/myss/schedule' \
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -253,7 +254,7 @@ Example response body:
         "callback": {
             "type": "http",
             "details": {
-                "url": "http://127.0.0.1:8080/myss/healthcheck",
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                 "method": "GET",
                 "headers": {
                     "Content-Type": "application/json",
@@ -266,7 +267,7 @@ Example response body:
 ```
 #### Create Cron Schedule
 ```bash
-curl --location 'http://localhost:8080/myss/schedule' \
+curl --location 'http://localhost:8080/goscheduler/schedule' \
 --header 'Content-Type: application/json' \
 --data '{
     "appId": "test",
@@ -275,7 +276,7 @@ curl --location 'http://localhost:8080/myss/schedule' \
     "callback": {
         "type": "http",
         "details": {
-            "url": "http://127.0.0.1:8080/myss/healthcheck",
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
             "method": "GET",
             "headers": {
                 "Content-Type": "application/json",
@@ -351,7 +352,7 @@ Example response body:
             "callback": {
                 "type": "http",
                 "details": {
-                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                     "method": "GET",
                     "headers": {
                         "Content-Type": "application/json",
@@ -368,7 +369,7 @@ Example response body:
 
 ### Check Schedule Status
 ```
-curl --location 'http://localhost:8080/myss/schedule/a675115c-0a0e-11ee-bebb-acde48001122' \
+curl --location 'http://localhost:8080/goscheduler/schedule/a675115c-0a0e-11ee-bebb-acde48001122' \
 --header 'Accept: application/json'
 ```
 
@@ -394,7 +395,7 @@ Example response body:
             "callback": {
                 "type": "http",
                 "details": {
-                    "url": "http://127.0.0.1:8080/myss/healthcheck",
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
                     "method": "GET",
                     "headers": {
                         "Accept": "application/json",
@@ -735,3 +736,921 @@ In general, goscheduler can be used to schedule jobs with customizable callbacks
 - **Retries and Retry Strategies:** Handle failures or errors in asynchronous processing by scheduling retries with backoff strategies. The scheduler can automatically schedule retries based on configurable policies, allowing for resilient and fault-tolerant processing.
 
 - **Payment Reconciliation:** Schedule reconciliation tasks for payment processing systems to ensure the consistency and accuracy of transactions. For example, if a payment gateway experiences issues or timeouts, the scheduler can schedule a reconciliation task to fetch transaction status from the bank and initiate necessary actions like refunds.
+
+# GoScheduler API Contract
+
+Common Header for all the below APIs:
+
+### Headers
+
+|Header-Type|Value|
+|---|---|
+|Accept|application/json|
+|Content-Type|application/json
+
+
+## 1. HealthCheck API
+This API is used to perform a health check or status check for the server.It checks whether the service is up and running.
+
+This function provides a simple health check endpoint for the server, indicates the server's status to the client.
+
+### Method: GET
+```
+http://localhost:8080/goscheduler/healthcheck
+```
+
+### Curl
+
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/healthcheck'
+```
+
+### Sample Success Response: 200
+``` json
+{
+    "statusMessage": "Success"
+}
+```
+### Sample Error Response: 404
+```json
+{
+    "statusMessage": "Fail"
+}
+```
+
+## 2. Register App
+This API handles the registration of an application. It receives a JSON payload containing the application information, inserts the application and its entities into the database, and returns an appropriate response indicating the registration status.
+
+
+1. Check if the `AppId` field in the `payload` is empty. If it is empty, it records the registration failure and returns an appropriate response indicating that the AppId cannot be empty.
+
+2. If the `Partitions` field in the `payload` is zero, it assigns the default count from the service's configuration.
+3. If the `active` parameter is "TRUE", it represents that it is an active app and if it is "FALSE", it represents a deactivated app.
+
+### Method: POST
+```
+http://localhost:8080/goscheduler/apps
+```
+### Body (**raw**)
+
+```json
+{
+	"appId": "revamp",
+	"partitions": 2,
+    "active": true
+}
+```
+### Curl
+
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+	"appId": "athena",
+	"partitions": 2,
+    "active": true
+}'
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "appId": "revamp",
+        "partitions": 2,
+        "active": true
+    }
+}
+```
+
+### Sample Error Response: 400
+```json
+{
+    "status": {
+        "statusCode": 400,
+        "statusMessage": "AppId cannot be empty",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 3. Get Apps API
+This API retrieves information about multiple apps based on "app_id" query parameter. If there is no "app_id" present in the request, it retrieves all the apps with its status.
+
+If the status of "active" parameter is "TRUE", it represents that it is an active app and if it is "FALSE", it represents a deactivated app.
+### Method: GET
+```
+http://localhost:8080/goscheduler/apps
+```
+
+If we want to retrieve information about a specific app, we can add the "app_id" parameter as a query param.
+
+
+### Query Params
+
+|Param| Description                                             | Type of Value |Sample value|
+|---|---------------------------------------------------------|--------|---|
+|app_id| The ID of the app for which the schedule is created | String | revamp |
+
+
+### Curl
+
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/apps?app_id=revamp' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
+--data-raw ''
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 2
+    },
+    "data": {
+        "apps": [
+            {
+                "appId": "opensource",
+                "partitions": 5,
+                "active": true
+            },
+            {
+                "appId": "revamp",
+                "partitions": 2,
+                "active": true
+            }
+        ]
+    }
+}
+```
+
+## 4. Create Schedule HttpCallback API
+This API creates a schedule based on the data provided in the request body.
+
+Based on the appId present in the payload of the API, it handles different error scenarios.
+
+1. **If the app is not found** - It records a create failure, handles the **error indicating an invalid app ID**, and returns an appropriate response.
+2. If there is **an error while fetching the app -** it records a create failure, **handles the data fetch failure error.**
+3. If the **app ID is empty -** it records a create failure, handles the **error indicating an invalid app ID.**
+4. If the **app is not active -** it records a create failure, handles **the error indicating a deactivated app.**
+
+### Method: POST
+```
+http://localhost:8080/goscheduler/schedules
+```
+
+### Body (**raw**)
+
+```json
+{
+    "appId": "revamp",
+    "payload": "{}",
+    "scheduleTime": 2687947561,
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}
+```
+### Curl
+
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
+--data-raw '{
+    "appId": "revamp",
+    "payload": "{}",
+    "scheduleTime": 2687947561,
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}'
+```
+
+### Sample Success Response: 200
+
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "1497b35c-1a21-11ee-8689-ceaebc99522c",
+            "payload": "{}",
+            "appId": "revamp",
+            "scheduleTime": 2529772970,
+            "Ttl": 0,
+            "partitionId": 1,
+            "scheduleGroup": 2529772920,
+            "httpCallback": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                "method": "GET",
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    }
+}
+```
+
+
+### Sample Error Response: 400
+```json
+{
+    "status": {
+        "statusCode": 400,
+        "statusMessage": "parse \"www.myntra.com\": invalid URI for request,Invalid http callback method ,schedule time : 1629772970 is less than current time: 1688443428 for app: revamp. Time cannot be in past.",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 5. Create Cron-Schedule API
+
+The purpose of this API is to create a cron schedule based on the cron expression provided in the request body.
+
+To create a cron schedule, you will first have to register the **Athena** app.
+
+### Method: POST
+```
+http://localhost:8080/goscheduler/schedules
+```
+### Body (**raw**)
+
+```json
+{
+    "appId": "athena",
+    "payload": "{}",
+    "cronExpression": "*/5 * * * *",
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}
+```
+
+### curl
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/schedules' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "appId": "Athena",
+    "payload": "{}",
+    "cronExpression": "*/5 * * * *",
+    "callback": {
+        "type": "http",
+        "details": {
+            "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }
+    }
+}'
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "167233ef-1fce-11ee-ba66-0242ac120004",
+            "payload": "{}",
+            "appId": "Athena",
+            "partitionId": 0,
+            "callback": {
+                "type": "http",
+                "details": {
+                    "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                    "method": "GET",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                }
+            },
+            "cronExpression": "*/6 * * * *",
+            "status": "SCHEDULED"
+        }
+    }
+}
+```
+
+### Sample Error Response: 400
+```json
+{
+    "status": {
+        "statusCode": 400,
+        "statusMessage": "parse \"www.google.com\": invalid URI for request,Invalid http callback method ",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 6. Get Cron-Schedules API
+This HTTP endpoint retrieves cron schedules based on the provided parameters - app_id and status.
+
+The various values of "STATUS" can be -
+
+|Status| Description |
+|----|-------------|
+|SCHEDULED|Represents the schedule is scheduled |
+|DELETED| Represents the schedule is deleted |
+|SUCCESS| Represents the schedule is successfully run | 
+|FAILURE| Represents the schedule is failed |
+|MISS| Represents the schedule was not triggered |
+
+### Method: POST
+```
+http://localhost:8080/goscheduler/crons/schedules?app_id=revamp
+```
+### Query Params
+
+
+|Param| Description                                              | Type of Value | Example         |
+|---|----------------------------------------------------------|--------|-----------------|
+|app_id| The ID of the app for which the cron schedule is created | string | revamp |
+
+### curl
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/crons/schedules?app_id=revamp&status=SCHEDULED' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+
+### Sample Success Response:
+```json
+{
+  "status": {
+    "statusCode": 200,
+    "statusMessage": "Success",
+    "statusType": "Success",
+    "totalCount": 0
+  },
+  "data": [
+    {
+      "scheduleId": "167233ef-1fce-11ee-ba66-0242ac120004",
+      "payload": "{}",
+      "appId": "revamp",
+      "partitionId": 0,
+      "callback": {
+        "type": "http",
+        "details": {
+          "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+          "method": "GET",
+          "headers": {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          }
+        }
+      },
+      "cronExpression": "*/6 * * * *",
+      "status": "SCHEDULED"
+    }
+  ]
+}
+```
+### Sample Error response
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "No cron schedules found",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 7. Get Schedule API
+This API retrieves a schedule by its ID, handles different retrieval scenarios, and returns the appropriate response with the retrieved schedule or error information.
+
+### Method: GET
+```
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
+```
+
+### Curl
+
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "1497b35c-1a21-11ee-8689-ceaebc99522c",
+            "payload": "{}",
+            "appId": "revamp",
+            "scheduleTime": 2529772970,
+            "partitionId": 1,
+            "scheduleGroup": 2529772920,
+            "callback": {
+              "type": "http",
+              "details": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                "method": "GET",
+                "headers": {
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
+                }
+              }
+            },
+            "status": "SCHEDULED"
+        }
+    }
+}
+```
+
+### Sample Error Response: 404
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "Schedule with id: 4588e23e-ae06-11ec-bcba-acde48001122 not found",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 8. Get Schedules with all runs API
+This API retrieves the runs of a schedule (execution instances) of a schedule based on the schedule's ID. 
+It handles different retrieval scenarios, and returns the appropriate response with the retrieved runs or error information.
+
+If no runs are found, it logs an info message, records the successful retrieval, handles the data not found error, and returns an appropriate response.
+
+### Method: GET
+```
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1
+```
+
+### Query Params
+
+|Param| Description                         | Type of Value | Example     |
+|---|-------------------------------------|---------------|-------------|
+|when| time-frame                          | string        | past/future |
+|size| number of results we want to fetch| int| 1           |
+
+### Curl
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c/runs?when=future&size=1' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg=' \
+--data-raw ''
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 11
+    },
+    "data": {
+        "schedules": [
+            {
+                "scheduleId": "26631a1b-1fd6-11ee-ba9c-0242ac120004",
+                "payload": "{}",
+                "appId": "revamp",
+                "scheduleTime": 1689071760,
+                "partitionId": 0,
+                "scheduleGroup": 1689071760,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SCHEDULED"
+            },
+            {
+                "scheduleId": "4fda1178-1fd5-11ee-ba96-0242ac120004",
+                "payload": "{}",
+                "appId": "revamp",
+                "scheduleTime": 1689071400,
+                "partitionId": 0,
+                "scheduleGroup": 1689071400,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "FAILURE",
+                "errorMessage": "404 Not Found"
+            },
+          {
+            "scheduleId": "2c0df520-1fce-11ee-ba68-0242ac120004",
+            "payload": "{}",
+            "appId": "revamp",
+            "scheduleTime": 1689068160,
+            "partitionId": 0,
+            "scheduleGroup": 1689068160,
+            "callback": {
+              "type": "http",
+              "details": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                "method": "GET",
+                "headers": {
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
+                }
+              }
+            },
+            "status": "MISS",
+            "errorMessage": "Failed to make a callback"
+          }
+        ],
+      "continuationToken": ""
+    }
+}
+```
+
+### Sample Error Response: 404
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "No runs found for schedule with id 1305aec5-e233-11ea-97ed-000d3af279cb",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 9. Get Paginated Schedules by appId API
+This API get all the schedules associated with a specific application ID based on time range and status in a paginated way.
+
+It throws an error if the application Id is not registered, or if the application details are not fetched successfully.
+
+It handles different scenarios based on the parsed query parameters:
+
+1. If there is an error parsing the query parameters, it handles the invalid data error and returns an appropriate response.
+2. If the `size` parameter is less than 0, it handles the invalid data error.
+3. If the `endTime` of the `timeRange` is before the `startTime`, it handles the invalid data error.
+4. If the time range is greater than a predefined number of days (30 days in this case), it handles the invalid data error and returns an appropriate response.
+5. If the query parameters are successfully parsed, the function calls the `GetPaginatedSchedules` method of the `scheduleDao` to retrieve paginated schedules based on the application ID and other parameters.
+
+
+### Method: GET
+```
+http://localhost:8080/goscheduler/apps/revamp/schedules
+```
+### Query Params
+
+
+| Param | Description                                    | Type of Value | Example         |
+|-------|------------------------------------------------|---------------|-----------------|
+| size  | number of results we want to fetch             | int           | 5               |
+| start_time  | start time of the range to fetch all schedules | string        | 2023-06-28 10:00:00              |
+| end_time  | end time of the range to fetch all schedules   | string        | 2023-07-02 12:00:00              |
+| continuationToken  | token to fetch the next set of schedules       | string        | 19000474657374000004000000 |
+| continuationStartTime  | startTime from where we continue fetching next set of schedules | long             | 1687930200               |
+| status  | status type of the schedules we want to fetch  | string        | ERROR               |
+
+
+**Note** : ContinuationToken and continuationStartTime are generated after the first call, it's not needed for the first time api call.
+
+### Curl
+```bash
+curl --location --request GET 'http://localhost:8080/goscheduler/apps/revamp/schedules?size=5&start_time=2023-06-28 10:00:00&status=SUCCESS&end_time=2023-07-02 12:00:00' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response: 200
+
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 2
+    },
+    "data": {
+        "schedules": [
+            {
+                "scheduleId": "d5e0fd64-26bc-11ee-8f1a-aa665a372253",
+                "payload": "{}",
+                "appId": "test",
+                "scheduleTime": 1689830381,
+                "partitionId": 0,
+                "scheduleGroup": 1689830340,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SUCCESS"
+            },
+            {
+                "scheduleId": "cf8e385a-26bc-11ee-8f15-aa665a372253",
+                "payload": "{}",
+                "appId": "test",
+                "scheduleTime": 1689830381,
+                "partitionId": 0,
+                "scheduleGroup": 1689830340,
+                "callback": {
+                    "type": "http",
+                    "details": {
+                        "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                        "method": "GET",
+                        "headers": {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                },
+                "status": "SUCCESS"
+            }
+        ],
+        "continuationToken": "19000474657374000004000000000000080000018971bcb5a000120010cf8e385a26bc11ee8f15aa665a372253f07ffffffdf07ffffffd",
+        "continuationStartTime": 1689827400
+    }
+}
+```
+
+### Sample Error Response: 400
+```json
+{
+    "status": {
+        "statusCode": 400,
+        "statusMessage": "Time range of more than 30 days is not allowed",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 10. Deactivate App API
+This API handles the deactivation of an application by updating its active status to "false" in the database, deactivating the application in the supervisor, and returning an appropriate response indicating the deactivation status.
+On deactivation, all the pollers will be stopped, so no new schedules could be created and no schedules will be triggered.
+### Method: POST
+```
+http://localhost:8080/goscheduler/apps/revamp/deactivate
+```
+
+### Curl
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/deactivate' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 0
+    },
+    "data": {
+        "appId": "revamp",
+        "Active": false
+    }
+}
+```
+### Sample Error Resonse: 400
+```json
+{
+    "status": {
+        "statusCode": 4001,
+        "statusMessage": "unregistered App",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 11. Activate App API
+This API handles the activation of an application by updating its active status in the database, activating the application in the supervisor, and returning an appropriate response indicating the activation status.
+
+It checks if the `Active` field of the application is already set to `true`. If it is `true`, it records the activation failure and returns an appropriate response indicating that the app is already activated.
+### Method: POST
+```
+http://localhost:8080/goscheduler/apps/revamp/activate
+```
+
+### Curl
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/activate' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 201,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 0
+    },
+    "data": {
+        "appId": "revamp",
+        "Active": true
+    }
+}
+```
+### Sample Error Response: 4XX
+```json
+{
+    "status": {
+        "statusCode": 4001,
+        "statusMessage": "unregistered App",
+        "statusType": "Fail"
+    }
+}
+```
+
+```json
+{
+    "status": {
+        "statusCode": 4003,
+        "statusMessage": "app is already activated",
+        "statusType": "Fail"
+    }
+}
+```
+
+## 12. Reconcile/Bulk Action API
+This API gets all the schedules of an app in bulk based on time range and status.
+
+This HTTP endpoint that handles bulk actions for schedules of an app based on status.
+
+Based on `actionType`, it performs the following actions:
+
+- If it is `reconcile`, it retriggers all the schedules of an app again. If it is `Delete`, it deletes all the schedules of the app in bulk.
+- If the `actionType` is invalid, handle the error and return an appropriate response indicating the invalid action type.
+
+It parses the request to extract the time range and status parameters. The end time of the time range should be before the start time and the duration of the time range should not exceed the maximum allowed period.
+### Method: POST
+```
+http://localhost:8080/goscheduler/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00
+```
+
+### Query Params
+
+
+| Param | Description                                   | Type of Value | Example             |
+|-------|-----------------------------------------------|---------------|---------------------|
+| status  | status type of the schedules we want to fetch | string        | SUCCESS             |
+| start_time  | start time of the range to fetch all schedules | string        | 2023-02-06 10:47:00 |
+| end_time  | end time of the range to fetch all schedules  | string        | 2023-02-06 11:50:00 |
+
+### Curl
+```bash
+curl --location --request POST 'http://localhost:8080/goscheduler/apps/revamp/bulk-action/reconcile?status=SUCCESS&start_time=2023-02-06%2010:47:00&end_time=2023-02-06%2011:50:00' \
+--header 'Accept: application/json' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response : 200
+
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 0
+    },
+    "remarks": "reconcile initiated successfully for app: revamp, timeRange: {StartTime:2023-02-06 10:47:00 +0530 IST EndTime:2023-02-06 11:50:00 +0530 IST}, status: SUCCESS"
+}
+```
+
+## 13. Delete Schedule API
+This API cancels a schedule based on its ID, handles different deletion scenarios, and returns the appropriate response with the deleted schedule or error information.
+On deleting a cron schedule, all the children runs will also be deleted.
+
+After a particular schedule is deleted, if we run this delete schedule API again, it would give "Not found".
+### Method: DELETE
+```
+http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c
+```
+
+### Curl
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/goscheduler/schedules/1497b35c-1a21-11ee-8689-ceaebc99522c' \
+--header 'Authorization: Basic ZXJwYWRtaW46d2VsY29tZUAyNTg='
+```
+
+### Sample Success Response: 200
+```json
+{
+    "status": {
+        "statusCode": 200,
+        "statusMessage": "Success",
+        "statusType": "Success",
+        "totalCount": 1
+    },
+    "data": {
+        "schedule": {
+            "scheduleId": "1497b35c-1a21-11ee-8689-ceaebc99522c",
+            "payload": "{}",
+            "appId": "revamp",
+            "scheduleTime": 2529772970,
+            "Ttl": 0,
+            "partitionId": 1,
+            "scheduleGroup": 2529772920,
+            "httpCallback": {
+                "url": "http://127.0.0.1:8080/goscheduler/healthcheck",
+                "method": "GET",
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    }
+}
+```
+
+### Sample Error Response: 404
+
+```json
+{
+    "status": {
+        "statusCode": 404,
+        "statusMessage": "not found",
+        "statusType": "Fail"
+    }
+}
+```
+___________________________________________________
