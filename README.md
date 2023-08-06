@@ -111,8 +111,8 @@ go build .
 ```
 5. Start multiple instances of service using following commands:
 ```shell
-PORT=8080 ./goscheduler -h 127.0.0.1 -p 9091
-PORT=8081 ./goscheduler -h 127.0.0.1 -p 9092
+PORT=8080 ./goscheduler -h 127.0.0.1 -p 9091 -conf=./conf/conf.json
+PORT=8081 ./goscheduler -h 127.0.0.1 -p 9092 -conf=./conf/conf.json
 ```
 This starts the service instances on ports 8080 and 8081, respectively, and the Ringpop instances on ports 9091 and 9092.
 
@@ -124,16 +124,72 @@ go tool cover -func profile.cov
 ```
 
 ## Configuration
+To configure the `conf.json` use the following guidelines:
+```yml
+{
+  "HttpPort": "8080", # Port for HTTP communication
+  "Cluster": {
+    "Address": "127.0.0.1:9091", # Ringpop cluster address with IP and port
+    "TChannelPort": "9091", # Ringpop port for TChannel communication
+    "BootStrapServers": [
+      "127.0.0.1:9091", "127.0.0.1:9092" # Ringpop cluster bootstrap server IPs and ports
+    ]
+    # ... other configurations ...
+  },
+  "ClusterDB": {
+    "DBConfig": {
+      "Hosts": "127.0.0.1", # Cassandra database host IP
+      "VaultConfig": {
+        "Enabled": false,
+        "Username": "cassandra", # Cassandra database username if vaultConfig is enabled
+        "Password": "cassandra" # Cassandra database password if vaultConfig is enabled
+      }
+      # ... other configurations ...
+    }
+    # ... other configurations ...
+  },
+  "ScheduleDB": {
+    "DBConfig": {
+      "Hosts": "127.0.0.1", # Cassandra database host IP
+      "VaultConfig": {
+        "Enabled": false,
+        "Username": "cassandra", # Cassandra database username if vaultConfig is enabled
+        "Password": "cassandra" # Cassandra database password if vaultConfig is enabled
+      }
+      # ... other configurations ...
+    }
+    # ... other configurations ...
+  },
+  # ... other configurations ...
+  "MonitoringConfig": {
+    "Statsd": {
+      "Address": "54.251.41.202:8125" # Monitoring server IP and port
+      # ... other configurations ...
+    }
+  },
+  # ... other configurations ...
+}
+```
 
-To configure the service, you can use the following options:
+- `HttpPort`: Port for HTTP communication, e.g., `"8080"`
+- `Cluster.Address`: Ringpop address with IP and port, e.g., `"127.0.0.1:9091"`
+- `Cluster.TChannelPort`: Port for Ringpop TChannel communication, e.g., `"9091"`
+- `Cluster.BootStrapServers`: Ringpop cluster bootstrap nodes, e.g., `["127.0.0.1:9091", "127.0.0.1:9092"]`
+- `ClusterDB.DBConfig.Hosts`: Database host IP, e.g., `"127.0.0.1"`
+- `ClusterDB.DBConfig.VaultConfig`: If enabled, provide username and password e.g., `"Username": "cassandra"` and `"Password": "cassandra"` 
+- `ScheduleDB.DBConfig.Hosts`: Database host IP, e.g., `"127.0.0.1"`
+- `ScheduleDB.DBConfig.VaultConfig`: If enabled, provide username and password e.g., `"Username": "cassandra"` and `"Password": "cassandra"`
+- `MonitoringConfig.Statsd.Address`: Monitoring server IP and port, e.g., `"54.251.41.202:8125"`
+
+To configure the service during startup, you can use the following options:
 
 - `PORT`: Specify the port number for the service to listen on. For example, `PORT=8080`.
 
 - `-h`: Set the hostname or IP address for the service. For example, `-h 127.0.0.1`.
 
-- `-p`: Specify the port number(s) for the Ringpop instances. For example, `-p 9091` or `-p 9091,9092`.
+- `-p`: Specify the port number for the Ringpop instance. For example, `-p 9091`.
 
-- `-conf`: Provide the absolute path of a custom configuration file for the service. For example, `-conf /path/to/myconfig.yaml`.
+- `-conf`: Provide the absolute path of a custom configuration file for the service. For example, `-conf /path/to/myconfig.json`.
 
 - `-r`: Specify the port number where Ringpop is run for rate-limiting purposes. For example, `-r 2479`.
 
@@ -388,7 +444,7 @@ func main() {
 	service := scheduler.Service
 
 	// Get Schedule
-	scheduleUUID := "12345"
+	scheduleUUID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
 	schedule, err := service.GetSchedule(scheduleUUID)
 	if err != nil {
