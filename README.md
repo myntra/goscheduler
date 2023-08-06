@@ -356,8 +356,8 @@ package main
 import (
 	"fmt"
 	"time"
-	sch "github.com/example/goScheduler/scheduler"
-	"github.com/example/goScheduler/store"
+	sch "github.com/myntra/goscheduler/scheduler"
+	"github.com/myntra/goscheduler/store"
 )
 
 func main() {
@@ -389,8 +389,8 @@ package main
 import (
 	"fmt"
 	"time"
-	sch "github.com/example/goScheduler/scheduler"
-	"github.com/example/goScheduler/store"
+	sch "github.com/myntra/goscheduler/scheduler"
+	"github.com/myntra/goscheduler/store"
 )
 
 func main() {
@@ -433,8 +433,8 @@ package main
 import (
 	"fmt"
 	"time"
-	sch "github.com/example/goScheduler/scheduler"
-	"github.com/example/goScheduler/store"
+	sch "github.com/myntra/goscheduler/scheduler"
+	"github.com/myntra/goscheduler/store"
 )
 
 func main() {
@@ -483,7 +483,7 @@ Detailed API documentation for goscheduler can be found [here](Link to github wi
 | Create Schedule (240K), async Kafka-based callback, delete schedule (60K) running simultaneously       | 300K         | 40 min     | p99 < 60ms|
 | Create Schedule with HTTP callback running simultaneously                                              | 100K         | 15 min     | p99 < 30ms|
 
-**Note:** All the runs are made with following configurations: 8 application servers with Standard_D8_v3 Azure boxes, 7 node Cassandra cluster with Standard_D16_v3
+**Note:** All the runs are made with following configurations: 8 application servers with [Standard_D8_v3 Azure boxes](https://learn.microsoft.com/en-us/azure/virtual-machines/dv3-dsv3-series), 7 node Cassandra cluster with [Standard_D16_v3 Azure boxes](https://learn.microsoft.com/en-us/azure/virtual-machines/dv3-dsv3-series)
 
 
 # License
