@@ -25,8 +25,9 @@
         - [Check Schedule Status (Go Module)](#check-schedule-status-go-module) 
 6. [Use Cases](#use-cases)
 7. [APIs](#apis)
-8. [License](#license)
-9. [Contributors](#contributors)
+8. [Benchmarks](#benchmarks)
+9. [License](#license)
+10. [Contributors](#contributors)
  
 # Introduction
 GoScheduler, based on Myntra's Scheduler Service ([MySS](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c)), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs.
@@ -473,6 +474,17 @@ More details on usecases can be found [here](Link to usecases)
 
 # APIs
 Detailed API documentation for goscheduler can be found [here](Link to github wiki for API documentation)
+
+# Benchmarks
+
+| Scenario                                                                                               | RPM          | Duration   | Latency   |
+|--------------------------------------------------------------------------------------------------------|--------------|------------|-----------|
+| Create Schedule with async Kafka-based callback running simultaneously                                 | 350K         | 20 min     | p99 < 50ms|
+| Create Schedule (240K), async Kafka-based callback, delete schedule (60K) running simultaneously       | 300K         | 40 min     | p99 < 60ms|
+| Create Schedule with HTTP callback running simultaneously                                              | 100K         | 15 min     | p99 < 30ms|
+
+**Note:** All the runs are made with following configurations: 8 application servers with Standard_D8_v3 Azure boxes, 7 node Cassandra cluster with Standard_D16_v3
+
 
 # License
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
