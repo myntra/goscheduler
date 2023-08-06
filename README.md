@@ -212,13 +212,11 @@ curl --location 'http://localhost:8080/goscheduler/app' \
 }'
 ```
 
-Request Body
 The request body should be a JSON object with the following fields:
 - `appId (string)`: The ID of the app to create.
 - `partitions (integer)`: The number of partitions for the app.
 - `active (boolean)`: Specifies if the app is active or not.
 
-Response
 The API will respond with the created app's details in JSON format.
 
 ```json
