@@ -39,6 +39,7 @@ import (
 // Scheduler is a struct that holds pointers to various components of the scheduler.
 type Scheduler struct {
 	Config     *c.Configuration
+	Router     *mux.Router
 	Supervisor *cluster.Supervisor
 	Service    *s.Service
 	Connectors *conn.Connector
@@ -97,6 +98,11 @@ func initService(conf *c.Configuration, supervisor cluster.SupervisorHandler, cl
 	return s.NewService(conf, supervisor, clusterDao, scheduleDao, monitoring)
 }
 
+// initServer starts an HTTP server using the provided configuration and Service object to handle requests.
+func initServer(conf *c.Configuration, router *mux.Router, service *s.Service) {
+	go server.NewHTTPServer(conf.HttpPort, router, service)
+}
+
 // startHTTPServer starts an HTTP server using the provided configuration and Service object to handle requests.
 func startHTTPServer(conf *c.Configuration, service *s.Service) {
 	router := mux.NewRouter().StrictSlash(true)
@@ -123,9 +129,11 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	supervisor := initSupervisor(conf, retrievers, clusterDao, monitoring)
 	connectors := initConnectors(conf, clusterDao, schedulerDao, monitoring)
 	service := initService(conf, supervisor, clusterDao, schedulerDao, monitoring)
-	startHTTPServer(conf, service)
+	router := mux.NewRouter().StrictSlash(true)
+	initServer(conf, router, service)
 	return &Scheduler{
 		Config:     conf,
+		Router:     router,
 		Supervisor: supervisor,
 		Service:    service,
 		Connectors: connectors,
