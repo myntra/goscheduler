@@ -29,7 +29,7 @@ import (
 
 type DummyScheduleDaoImpl struct{}
 
-func (d *DummyScheduleDaoImpl) CreateSchedule(schedule s.Schedule) (s.Schedule, error) {
+func (d *DummyScheduleDaoImpl) CreateSchedule(schedule s.Schedule, app s.App) (s.Schedule, error) {
 	switch schedule.AppId {
 	case "createScheduleFailureApp":
 		return schedule, errors.New("error")
@@ -121,11 +121,11 @@ func (d *DummyScheduleDaoImpl) GetScheduleRuns(uuid gocql.UUID, size int64, when
 	return []s.Schedule{}, nil, nil
 }
 
-func (d *DummyScheduleDaoImpl) CreateRun(schedule s.Schedule) (s.Schedule, error) {
+func (d *DummyScheduleDaoImpl) CreateRun(schedule s.Schedule, app s.App) (s.Schedule, error) {
 	return schedule, nil
 }
 
-func (d *DummyScheduleDaoImpl) UpdateStatus(schedules []s.Schedule) error {
+func (d *DummyScheduleDaoImpl) UpdateStatus(schedules []s.Schedule, app s.App) error {
 	return nil
 }
 

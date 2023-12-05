@@ -35,4 +35,9 @@ type ClusterDao interface {
 	CreateEntity(info e.EntityInfo) error
 	UpdateAppActiveStatus(appName string, activeStatus bool) error
 	GetApps(appId string) ([]store.App, error)
+	GetDCAwareApp(appName string) (store.App, error)
+	CreateConfigurations(appId string, configuration store.Configuration) (store.Configuration, error)
+	GetConfiguration(appId string) (store.Configuration, error)
+	UpdateConfiguration(appId string, configuration store.Configuration) (store.Configuration, error)
+	DeleteConfiguration(appId string) (store.Configuration, error)
 }

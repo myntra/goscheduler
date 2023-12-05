@@ -20,9 +20,11 @@
 package dao
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/imdario/mergo"
 	"github.com/myntra/goscheduler/cassandra"
 	e "github.com/myntra/goscheduler/cluster_entity"
 	"github.com/myntra/goscheduler/conf"
@@ -50,6 +52,7 @@ var (
 	KeyEntityTable = "entity"
 	KeyNodeTable   = "nodes"
 	KeyAppTable    = "apps"
+	MaxConfigApp   = "maxConfig"
 
 	KeyEntitiesOfNode    = "SELECT id, status FROM " + KeyNodeTable + " WHERE nodename='%s';"
 	KeyGetAllEntities    = "SELECT id, nodename, status, history FROM " + KeyEntityTable + ";"
@@ -58,8 +61,11 @@ var (
 	QueryInsertEntity    = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
 	QueryInsertApp       = "INSERT INTO " + KeyAppTable + " (id, partitions, active) VALUES (?, ?, ?)"
 	KeyAppById           = "SELECT id, partitions, active FROM " + KeyAppTable + " WHERE id='%s';"
+	KeyAppByIds          = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
 	KeyGelAllApps        = "SELECT id, partitions, active FROM " + KeyAppTable + ";"
 	QueryUpdateAppStatus = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
+	QueryGetConfig       = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
+	QueryUpdateConfig    = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
 )
 
 // TODO: Should we make it singleton?
@@ -77,6 +83,89 @@ func GetClusterDaoImpl(clusterConfig *conf.ClusterConfig, clusterDBConfig *conf.
 			lock: sync.RWMutex{},
 			m:    make(map[string]store.App),
 		},
+	}
+}
+
+func (c *ClusterDaoImplCassandra) getDefaultApps() (map[string]bool, error) {
+	var appId string
+	var active bool
+	var config string
+	var partitions uint32
+	apps := make(map[string]bool)
+
+	iter := c.Session.
+		Query(KeyAppByIds, MaxConfigApp, conf.GlobalConfig.CronConfig.App).
+		Consistency(c.ClusterDBConfig.DBConfig.Consistency).
+		Iter()
+
+	for iter.Scan(&appId, &partitions, &active, &config) {
+		apps[appId] = true
+	}
+
+	if err := iter.Close(); err != nil {
+		glog.Errorf("Error occurred while getting default apps: %s", err.Error())
+		return apps, err
+	}
+
+	return apps, nil
+}
+
+func (c *ClusterDaoImplCassandra) createDefaultAppsIfRequired() {
+	apps, err := c.getDefaultApps()
+
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	if _, ok := apps[MaxConfigApp]; !ok {
+		configuration := store.Configuration{
+			FutureScheduleCreationPeriod: conf.GlobalConfig.AppLevelConfiguration.FutureScheduleCreationPeriod,
+			FiredScheduleRetentionPeriod: conf.GlobalConfig.AppLevelConfiguration.FiredScheduleRetentionPeriod,
+			PayloadSize:                  conf.GlobalConfig.AppLevelConfiguration.PayloadSize,
+			HttpRetries:                  conf.GlobalConfig.AppLevelConfiguration.HttpRetries,
+			HttpTimeout:                  conf.GlobalConfig.AppLevelConfiguration.HttpTimeout,
+		}
+
+		maxConfigApp := store.App{
+			AppId:         MaxConfigApp,
+			Partitions:    0,
+			Active:        false,
+			Configuration: configuration,
+		}
+
+		if err := c.InsertApp(maxConfigApp); err != nil {
+			glog.Fatal(err)
+		}
+
+		glog.Info("maxConfig app created!")
+	}
+
+	if _, ok := apps[conf.GlobalConfig.CronConfig.App]; !ok {
+		cronApp := store.App{
+			AppId:         conf.GlobalConfig.CronConfig.App,
+			Partitions:    conf.GlobalConfig.Poller.DefaultCount,
+			Active:        true,
+			Configuration: store.Configuration{},
+		}
+
+		if err := c.InsertApp(cronApp); err != nil {
+			glog.Fatal(err)
+		}
+
+		var partition uint32 = 0
+		for ; partition < cronApp.Partitions; partition++ {
+			entity := e.EntityInfo{
+				Id:      cronApp.AppId + constants.PollerKeySep + strconv.Itoa(int(partition)),
+				Node:    conf.GlobalConfig.RpConfig.GetAddress(),
+				Status:  0,
+				History: "",
+			}
+
+			if err := c.CreateEntity(entity); err != nil {
+				glog.Fatal(err)
+			}
+		}
+		glog.Info("Cron app created!")
 	}
 }
 
@@ -159,7 +248,22 @@ func (c *ClusterDaoImplCassandra) GetEntityInfo(id string) e.EntityInfo {
 
 // By default if Active parameter is not set it will create the app in deactivated state
 func (c *ClusterDaoImplCassandra) InsertApp(app store.App) error {
-	return c.Session.Query(QueryInsertApp, app.AppId, app.Partitions, app.Active).Exec()
+	var err error
+	var config []byte
+
+	// skip validations if the appName is same as maxConfigApp or
+	// if the configurations are empty
+	if app.AppId != MaxConfigApp {
+		if err = c.ValidateConfigurations(app.Configuration); err != nil {
+			return err
+		}
+	}
+
+	if config, err = json.Marshal(app.Configuration); err != nil {
+		return err
+	}
+
+	return c.Session.Query(QueryInsertApp, app.AppId, app.Partitions, app.Active, string(config)).Exec()
 }
 
 func (c *ClusterDaoImplCassandra) GetApp(appName string) (store.App, error) {
@@ -174,18 +278,27 @@ func (c *ClusterDaoImplCassandra) getApp(appName string) (store.App, error) {
 	var id string
 	var active bool
 	var partitions uint32
+	var config string
+	var configuration store.Configuration
 
 	query := fmt.Sprintf(KeyAppById, appName)
-	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&id, &partitions, &active); err != nil {
+	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&id, &partitions, &active, &config); err != nil {
 		glog.Errorf("Error %s while querying %s", err.Error(), query)
 		return store.App{}, err
 	}
 
+	if err := json.Unmarshal([]byte(config), &configuration); err != nil {
+		glog.Errorf("Error: %s while unmarshalling config: %+v for app: %s", err.Error(), config, id)
+		configuration = store.Configuration{}
+	}
+
 	return c.cache(
 		store.App{
-			AppId:      id,
-			Partitions: partitions,
-			Active:     active}), nil
+			AppId:         id,
+			Partitions:    partitions,
+			Active:        active,
+			Configuration: configuration,
+		}), nil
 }
 
 // Checks whether app is found in in-memory cache or not
@@ -240,7 +353,9 @@ func (c *ClusterDaoImplCassandra) CreateEntity(entityInfo e.EntityInfo) error {
 func (c *ClusterDaoImplCassandra) GetApps(appId string) ([]store.App, error) {
 	var id string
 	var active bool
+	var config string
 	var partitions uint32
+	var configuration store.Configuration
 	var apps []store.App
 
 	if appId != "" {
@@ -253,8 +368,12 @@ func (c *ClusterDaoImplCassandra) GetApps(appId string) ([]store.App, error) {
 	}
 
 	iter := c.Session.Query(KeyGelAllApps).Consistency(c.ClusterDBConfig.DBConfig.Consistency).PageSize(c.ClusterConfig.PageSize).Iter()
-	for iter.Scan(&id, &partitions, &active) {
-		apps = append(apps, store.App{AppId: id, Partitions: partitions, Active: active})
+	for iter.Scan(&id, &partitions, &active, &config) {
+		configuration = store.Configuration{}
+		if err := json.Unmarshal([]byte(config), &configuration); err != nil {
+			glog.Errorf("Error: %s while unmarshalling config: %+v for app: %s", err.Error(), config, id)
+		}
+		apps = append(apps, store.App{AppId: id, Partitions: partitions, Active: active, Configuration: configuration})
 	}
 
 	if err := iter.Close(); err != nil {
@@ -286,4 +405,178 @@ func (c *ClusterDaoImplCassandra) InvalidateSingleAppCache(appName string) {
 		delete(c.AppMap.m, appName)
 	}
 	c.AppMap.lock.Unlock()
+}
+
+func (c *ClusterDaoImplCassandra) GetDCAwareApp(appName string) (store.App, error) {
+	// check in memory cache for app
+	c.AppMap.lock.RLock()
+	dcPrefixedApp, dcPrefixedFound := c.AppMap.m[conf.GlobalConfig.DCConfig.Prefix+constants.DCPrefix+appName]
+	fallbackApp, fallbackFound := c.AppMap.m[appName]
+	c.AppMap.lock.RUnlock()
+
+	if dcPrefixedFound {
+		return dcPrefixedApp, nil
+	} else if fallbackFound {
+		return fallbackApp, nil
+	}
+
+	return c.getDCAwareApp(appName)
+}
+
+// get DC aware app from DB
+func (c *ClusterDaoImplCassandra) getDCAwareApp(appName string) (store.App, error) {
+	var appId string
+	var partitions uint32
+	var active bool
+	var config string
+	var configuration store.Configuration
+
+	// add dc prefix to app name
+	dcPrefixedAppName := conf.GlobalConfig.DCConfig.Prefix + constants.DCPrefix + appName
+
+	appIdToApp := make(map[string]store.App)
+	iter := c.Session.Query(KeyAppByIds, dcPrefixedAppName, appName).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Iter()
+
+	for iter.Scan(&appId, &partitions, &active, &config) {
+		configuration = store.Configuration{}
+		if err := json.Unmarshal([]byte(config), &configuration); err != nil {
+			glog.Errorf("Error: %s while unmarshalling config: %+v for app: %s", err.Error(), config, appId)
+		}
+		appIdToApp[appId] = store.App{
+			AppId:         appId,
+			Partitions:    partitions,
+			Active:        active,
+			Configuration: configuration,
+		}
+	}
+
+	if err := iter.Close(); err != nil {
+		glog.Infof("Error occurred while fetching apps: %+v", err)
+		return store.App{}, err
+	}
+
+	if app, ok := appIdToApp[dcPrefixedAppName]; ok {
+		c.cache(app)
+		return app, nil
+	} else if fallbackApp, ok := appIdToApp[appName]; ok {
+		c.cache(fallbackApp)
+		return fallbackApp, nil
+	} else {
+		return store.App{}, nil
+	}
+
+}
+
+// Create configuration for a given appId and configuration
+func (c *ClusterDaoImplCassandra) CreateConfigurations(appId string, configuration store.Configuration) (store.Configuration, error) {
+	var err error
+	var query string
+	var config []byte
+
+	if appId != MaxConfigApp {
+		if err = c.ValidateConfigurations(configuration); err != nil {
+			return store.Configuration{}, err
+		}
+	}
+
+	if config, err = json.Marshal(configuration); err != nil {
+		return store.Configuration{}, err
+	}
+
+	query = fmt.Sprintf(QueryUpdateConfig, string(config), appId)
+	glog.Info(query)
+
+	return configuration, c.Session.Query(query).Exec()
+}
+
+// Get app configurations for a given appId
+func (c *ClusterDaoImplCassandra) GetConfiguration(appId string) (store.Configuration, error) {
+	var query string
+	var config string
+	var configuration store.Configuration
+
+	query = fmt.Sprintf(QueryGetConfig, appId)
+	glog.Info(query)
+
+	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&config); err != nil {
+		return configuration, err
+	}
+
+	if err := json.Unmarshal([]byte(config), &configuration); err != nil {
+		return configuration, err
+	}
+
+	return configuration, nil
+}
+
+// Update the configurations for given appId and configurations
+func (c *ClusterDaoImplCassandra) UpdateConfiguration(appId string, configuration store.Configuration) (store.Configuration, error) {
+	var err error
+	var query string
+	var config []byte
+	var existingConfig store.Configuration
+
+	if appId != MaxConfigApp {
+		if err = c.ValidateConfigurations(configuration); err != nil {
+			return store.Configuration{}, err
+		}
+	}
+
+	if existingConfig, err = c.GetConfiguration(appId); err != nil {
+		return store.Configuration{}, err
+	}
+
+	if err = mergo.Merge(&configuration, existingConfig); err != nil {
+		return store.Configuration{}, err
+	}
+
+	if config, err = json.Marshal(configuration); err != nil {
+		return configuration, nil
+	}
+
+	query = fmt.Sprintf(QueryUpdateConfig, string(config), appId)
+	glog.Info(query)
+
+	return configuration, c.Session.Query(query).Exec()
+}
+
+// Delete the configurations for a given appId
+func (c *ClusterDaoImplCassandra) DeleteConfiguration(appId string) (store.Configuration, error) {
+	var query string
+
+	// empty config
+	config, _ := json.Marshal(store.Configuration{})
+
+	query = fmt.Sprintf(QueryUpdateConfig, string(config), appId)
+	glog.Info(query)
+
+	return store.Configuration{}, c.Session.Query(query).Exec()
+}
+
+// App configurations are validated against max configs
+func (c *ClusterDaoImplCassandra) ValidateConfigurations(config store.Configuration) error {
+	var app store.App
+	var err error
+
+	if config == (store.Configuration{}) {
+		return nil
+	}
+
+	if app, err = c.GetApp(MaxConfigApp); err != nil {
+		return err
+	}
+
+	if config.PayloadSize > app.Configuration.PayloadSize {
+		return errors.New(fmt.Sprintf("provided payload size: %d, max payload size: %d", config.PayloadSize, app.Configuration.PayloadSize))
+	} else if config.HttpRetries > app.Configuration.HttpRetries {
+		return errors.New(fmt.Sprintf("provided http retries: %d, max http retries: %d", config.HttpRetries, app.Configuration.HttpRetries))
+	} else if config.HttpTimeout > app.Configuration.HttpTimeout {
+		return errors.New(fmt.Sprintf("provided http timeout: %d, max http timeout: %d", config.HttpTimeout, app.Configuration.HttpTimeout))
+	} else if config.FiredScheduleRetentionPeriod > app.Configuration.FiredScheduleRetentionPeriod {
+		return errors.New(fmt.Sprintf("provided fired schedule retention period: %d, max fired schedule retention period: %d", config.FiredScheduleRetentionPeriod, app.Configuration.FiredScheduleRetentionPeriod))
+	} else if config.FutureScheduleCreationPeriod > app.Configuration.FutureScheduleCreationPeriod {
+		return errors.New(fmt.Sprintf("provided schedule retention period: %d, max future schedule creation period: %d", config.FutureScheduleCreationPeriod, app.Configuration.FutureScheduleCreationPeriod))
+	}
+
+	return nil
 }

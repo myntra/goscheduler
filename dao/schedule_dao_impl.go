@@ -179,7 +179,7 @@ func (s *ScheduleDaoImpl) createRecurringSchedule(schedule store.Schedule) (stor
 
 // Persist a one time schedule in Cassandra.
 // Throws error if writing data to schedule fails.
-func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule, app store.App) (store.Schedule, error) {
 	query := "INSERT INTO schedules (" +
 		"app_id," +
 		"partition_id," +
@@ -199,7 +199,8 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.
 		schedule.ScheduleTime*constants.SecondsToMillis,
 		schedule.Payload,
 		schedule.GetCallBackType(),
-		schedule.GetCallbackDetails()).Exec()
+		schedule.GetCallbackDetails(),
+		schedule.GetTTL(app)).Exec()
 
 	return schedule, err
 }
@@ -207,7 +208,7 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.
 // Persist the schedule details in cassandra.
 // The tables to which the schedule is written to is determined based on it being a recurring schedule or not.
 // Throws error if the writing to the schedule fails.
-func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule, app store.App) (store.Schedule, error) {
 	if schedule.IsRecurring() {
 		bucket := constants.CassandraInsert + constants.DOT + constants.CreateRecurringSchedule
 		return s.profile(func() (store.Schedule, error) {
@@ -216,7 +217,7 @@ func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule) (store.Schedul
 	} else {
 		bucket := constants.CassandraInsert + constants.DOT + constants.CreateSchedule
 		return s.profile(func() (store.Schedule, error) {
-			return s.createOneTimeSchedule(schedule)
+			return s.createOneTimeSchedule(schedule, app)
 		}, bucket)
 	}
 }
@@ -659,7 +660,7 @@ func (s *ScheduleDaoImpl) GetScheduleRuns(uuid gocql.UUID, size int64, when stri
 // Create a one time schedule for a recurring schedule.
 // The schedule will be persisted in schedule and runs tables.
 // Returns a non nil error in case persisting the data fails.
-func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule, app store.App) (store.Schedule, error) {
 
 	batch := gocql.NewBatch(gocql.LoggedBatch)
 
@@ -672,7 +673,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 		"payload," +
 		"callback_type," +
 		"callback_details," +
-		"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?",
 
 		"INSERT INTO recurring_schedule_runs (" +
 			"app_id," +
@@ -683,7 +684,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 			"payload," +
 			"callback_type," +
 			"callback_details," +
-			"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?",
 	} {
 		batch.
 			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
@@ -697,7 +698,8 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 				schedule.Payload,
 				schedule.GetCallBackType(),
 				schedule.GetCallbackDetails(),
-				schedule.ParentScheduleId)
+				schedule.ParentScheduleId,
+				schedule.GetTTL(app))
 	}
 
 	return schedule, s.Session.ExecuteBatch(batch)
@@ -705,7 +707,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 
 // updates status in batches
 // set ttl same as buffer ttl as data is added to this table after callback is fired
-func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
+func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule, app store.App) error {
 	//log schedule status update
 	for _, schedule := range schedules {
 		glog.Infof("update status for schedule: %s", schedule.ScheduleId.String())
@@ -718,7 +720,7 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
 		"schedule_id," +
 		"schedule_status," +
 		"error_msg," +
-		"reconciliation_history) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		"reconciliation_history) VALUES (?, ?, ?, ?, ?, ?, ?) USING TTL ?"
 
 	batch := gocql.NewBatch(gocql.UnloggedBatch)
 
@@ -735,7 +737,8 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
 				query.ScheduleId,
 				query.Status,
 				query.ErrorMessage,
-				reconciliationHistory)
+				reconciliationHistory,
+				query.GetTTL(app))
 	}
 
 	return s.Session.ExecuteBatch(batch)

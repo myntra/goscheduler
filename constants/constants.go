@@ -60,4 +60,8 @@ const (
 	DefaultCallback                          = "http"
 	HttpResponseSuccessStatusCodeLowerBound  = 200
 	HttpResponseSuccessStatusCodeHigherBound = 299
+	CreateConfiguration                      = "CreateConfiguration"
+	GetConfiguration                         = "GetConfiguration"
+	UpdateConfiguration                      = "UpdateConfiguration"
+	DeleteConfiguration                      = "DeleteConfiguration"
 )

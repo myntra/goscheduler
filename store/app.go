@@ -20,11 +20,30 @@
 package store
 
 type App struct {
-	AppId      string `json:"appId"`
-	Partitions uint32 `json:"partitions"`
-	Active     bool   `json:"active"`
+	AppId         string        `json:"appId"`
+	Partitions    uint32        `json:"partitions"`
+	Active        bool          `json:"active"`
+	Configuration Configuration `json:"configuration"`
 }
 
 type AppErrorResponse struct {
 	Errors []string `json:"errors"`
+}
+
+// GetMaxTTL gets maxCassandraTTL in seconds
+func (a App) GetMaxTTL() int {
+	if a.Configuration.FutureScheduleCreationPeriod == 0 {
+		return 60 * 60 * 24 * conf.GlobalConfig.AppLevelConfiguration.FutureScheduleCreationPeriod
+	}
+
+	return 60 * 60 * 24 * a.Configuration.FutureScheduleCreationPeriod
+}
+
+// getBufferTTL gets bufferCassandraTTL in seconds
+func (a App) GetBufferTTL() int {
+	if a.Configuration.FiredScheduleRetentionPeriod == 0 {
+		return 60 * 60 * 24 * conf.GlobalConfig.AppLevelConfiguration.FiredScheduleRetentionPeriod
+	}
+
+	return 60 * 60 * 24 * a.Configuration.FiredScheduleRetentionPeriod
 }

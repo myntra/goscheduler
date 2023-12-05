@@ -211,8 +211,8 @@ func (s Schedule) CheckUntriggeredCallback(flushPeriod int) bool {
 
 // GetTTL TTL will be set at schedule level
 // ttl = scheduleTime - now
-func (s Schedule) GetTTL() int {
-	return int(s.ScheduleTime - time.Now().Unix())
+func (s Schedule) GetTTL(app App) int {
+	return int(s.ScheduleTime-time.Now().Unix()) + app.GetBufferTTL()
 }
 
 // Set status, error_msg and reconciliation_history of the schedule from map
@@ -300,7 +300,7 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Schedule) ValidateSchedule() []string {
+func (s *Schedule) ValidateSchedule(app App) []string {
 	glog.Infof("ValidateSchedule: %+v", s)
 	var errs []string
 
@@ -309,6 +309,10 @@ func (s *Schedule) ValidateSchedule() []string {
 	}
 
 	if errStr := validateField(s.Payload, "payload"); errStr != "" {
+		errs = append(errs, errStr)
+	}
+
+	if errStr := validatePayloadSize(s.Payload, app); errStr != "" {
 		errs = append(errs, errStr)
 	}
 
@@ -321,7 +325,7 @@ func (s *Schedule) ValidateSchedule() []string {
 			errs = append(errs, er...)
 		}
 	} else {
-		if errStr := validateScheduleTime(s.ScheduleTime, s.AppId); errStr != "" {
+		if errStr := validateScheduleTime(s.ScheduleTime, app); errStr != "" {
 			errs = append(errs, errStr)
 		}
 	}
@@ -350,14 +354,37 @@ func validateField(fieldData string, field string) string {
 	return ""
 }
 
-func validateScheduleTime(scheduleTime int64, appId string) string {
+func validateScheduleTime(scheduleTime int64, app App) string {
 	now := time.Now().Unix()
 	if scheduleTime < now {
 		return fmt.Sprintf("schedule time : %d is less than current time: %d for app: %s. Time cannot be in past.",
 			scheduleTime,
 			now,
-			appId)
+			app.AppId)
+	} else if (scheduleTime - now) > int64(app.GetMaxTTL()) {
+		return fmt.Sprintf("schedule time : %d cannot be more than %d days from current time : %d for app: %s",
+			scheduleTime,
+			app.GetMaxTTL()/(24*60*60),
+			now,
+			app.AppId)
 	}
+	return ""
+}
+
+func validatePayloadSize(payload string, app App) string {
+	var maxPayloadSize int
+
+	if app.Configuration.PayloadSize == 0 {
+		maxPayloadSize = conf.GlobalConfig.AppLevelConfiguration.PayloadSize
+	} else {
+		maxPayloadSize = app.Configuration.PayloadSize
+	}
+
+	if len(payload) > maxPayloadSize {
+		glog.Errorf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d ", app.AppId, maxPayloadSize, len(payload))
+		return fmt.Sprintf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d", app.AppId, maxPayloadSize, len(payload))
+	}
+
 	return ""
 }
 

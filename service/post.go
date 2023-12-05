@@ -84,14 +84,14 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 
 // createSchedule creates a new schedule
 func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
-	errs := input.ValidateSchedule()
-	if errs != nil && len(errs) > 0 {
-		return sch.Schedule{}, er.NewError(er.InvalidDataCode, errors.New(strings.Join(errs, ",")))
-	}
-
 	app, err := s.getApp(input.AppId)
 	if err != nil {
 		return sch.Schedule{}, err
+	}
+
+	errs := input.ValidateSchedule(app)
+	if errs != nil && len(errs) > 0 {
+		return sch.Schedule{}, er.NewError(er.InvalidDataCode, errors.New(strings.Join(errs, ",")))
 	}
 
 	if input.IsRecurring() {
@@ -104,7 +104,7 @@ func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 
 	input.SetFields(app)
 
-	schedule, err := s.scheduleDao.CreateSchedule(input)
+	schedule, err := s.scheduleDao.CreateSchedule(input, app)
 	if err != nil {
 		return sch.Schedule{}, er.NewError(er.DataPersistenceFailure, err)
 	}

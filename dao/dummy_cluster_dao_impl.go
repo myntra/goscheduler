@@ -69,9 +69,10 @@ func (d DummyClusterDaoImpl) GetApp(appName string) (store.App, error) {
 	switch appName {
 	case "testDeactivatedUpdateAppActiveStatus", "testDeactivated":
 		return store.App{
-			AppId:      appName,
-			Partitions: 1,
-			Active:     false,
+			AppId:         appName,
+			Partitions:    1,
+			Active:        false,
+			Configuration: store.Configuration{},
 		}, nil
 	case "testGetAppError":
 		return store.App{}, errors.New(fmt.Sprintf("Error while getting app %s", appName))
@@ -83,9 +84,10 @@ func (d DummyClusterDaoImpl) GetApp(appName string) (store.App, error) {
 		return store.App{Active: false}, nil
 	default:
 		return store.App{
-			AppId:      appName,
-			Partitions: 1,
-			Active:     true,
+			AppId:         appName,
+			Partitions:    1,
+			Active:        true,
+			Configuration: store.Configuration{FutureScheduleCreationPeriod: 1000},
 		}, nil
 	}
 }
@@ -120,41 +122,41 @@ func (d DummyClusterDaoImpl) UpdateAppActiveStatus(appName string, activeStatus 
 	}
 }
 
-//func (d DummyClusterDaoImpl) CreateConfigurations(appId string, configuration schedule.Configuration) (schedule.Configuration, error) {
-//	switch appId {
-//	case "testCreateConfigurationsError":
-//		return schedule.Configuration{}, errors.New(fmt.Sprintf("Error creating configurations for app %s", appId))
-//	default:
-//		return schedule.Configuration{}, nil
-//	}
-//}
-//
-//func (d DummyClusterDaoImpl) GetConfiguration(appId string) (schedule.Configuration, error) {
-//	switch appId {
-//	case "testGetConfigurationError":
-//		return schedule.Configuration{}, errors.New(fmt.Sprintf("Error getting configurations for app %s", appId))
-//	default:
-//		return schedule.Configuration{}, nil
-//	}
-//}
-//
-//func (d DummyClusterDaoImpl) UpdateConfiguration(appId string, configuration schedule.Configuration) (schedule.Configuration, error) {
-//	switch appId {
-//	case "testUpdateConfigurationError":
-//		return schedule.Configuration{}, errors.New(fmt.Sprintf("Error updating configurations for app %s", appId))
-//	default:
-//		return schedule.Configuration{}, nil
-//	}
-//}
-//
-//func (d DummyClusterDaoImpl) DeleteConfiguration(appId string) (schedule.Configuration, error) {
-//	switch appId {
-//	case "testDeleteConfigurationError":
-//		return schedule.Configuration{}, errors.New(fmt.Sprintf("Error deleting configurations for app %s", appId))
-//	default:
-//		return schedule.Configuration{}, nil
-//	}
-//}
+func (d DummyClusterDaoImpl) CreateConfigurations(appId string, configuration store.Configuration) (store.Configuration, error) {
+	switch appId {
+	case "testCreateConfigurationsError":
+		return store.Configuration{}, errors.New(fmt.Sprintf("Error creating configurations for app %s", appId))
+	default:
+		return store.Configuration{}, nil
+	}
+}
+
+func (d DummyClusterDaoImpl) GetConfiguration(appId string) (store.Configuration, error) {
+	switch appId {
+	case "testGetConfigurationError":
+		return store.Configuration{}, errors.New(fmt.Sprintf("Error getting configurations for app %s", appId))
+	default:
+		return store.Configuration{}, nil
+	}
+}
+
+func (d DummyClusterDaoImpl) UpdateConfiguration(appId string, configuration store.Configuration) (store.Configuration, error) {
+	switch appId {
+	case "testUpdateConfigurationError":
+		return store.Configuration{}, errors.New(fmt.Sprintf("Error updating configurations for app %s", appId))
+	default:
+		return store.Configuration{}, nil
+	}
+}
+
+func (d DummyClusterDaoImpl) DeleteConfiguration(appId string) (store.Configuration, error) {
+	switch appId {
+	case "testDeleteConfigurationError":
+		return store.Configuration{}, errors.New(fmt.Sprintf("Error deleting configurations for app %s", appId))
+	default:
+		return store.Configuration{}, nil
+	}
+}
 
 func (d DummyClusterDaoImpl) GetApps(appId string) ([]store.App, error) {
 	switch appId {
@@ -165,22 +167,25 @@ func (d DummyClusterDaoImpl) GetApps(appId string) ([]store.App, error) {
 	case "test":
 		return []store.App{
 			{
-				AppId:      appId,
-				Partitions: 1,
-				Active:     true,
+				AppId:         appId,
+				Partitions:    1,
+				Active:        true,
+				Configuration: store.Configuration{},
 			},
 		}, nil
 	default:
 		return []store.App{
 			{
-				AppId:      "test1",
-				Partitions: 1,
-				Active:     true,
+				AppId:         "test1",
+				Partitions:    1,
+				Active:        true,
+				Configuration: store.Configuration{},
 			},
 			{
-				AppId:      "test2",
-				Partitions: 1,
-				Active:     false,
+				AppId:         "test2",
+				Partitions:    1,
+				Active:        false,
+				Configuration: store.Configuration{},
 			},
 		}, nil
 	}

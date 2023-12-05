@@ -105,7 +105,7 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 
 				clone := parent.CloneAsOneTime(_time)
 				clone.SetFields(app)
-				if errs := clone.ValidateSchedule(); len(errs) != 0 {
+				if errs := clone.ValidateSchedule(app); len(errs) != 0 {
 					glog.Errorf(
 						"Validation failed for one time schedule %v of cron %s with errors %v",
 						clone, parent.ScheduleId, errs)
@@ -114,7 +114,7 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 					continue
 				}
 
-				if clone, err = c.ScheduleDao.CreateRun(clone); err != nil {
+				if clone, err = c.ScheduleDao.CreateRun(clone, app); err != nil {
 					glog.Errorf(
 						"Creation failed for one time schedule %v of cron %s with errors %s",
 						clone, parent.ScheduleId, err.Error())
