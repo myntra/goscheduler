@@ -32,14 +32,23 @@ import (
 
 func setupClusterDaoMocks(t *testing.T) (*ClusterDaoImplCassandra, *mocks.MockSessionInterface, *mocks.MockQueryInterface, *mocks.MockIterInterface, *gomock.Controller) {
 	dao := &ClusterDaoImplCassandra{
-		ClusterConfig: &conf.ClusterConfig{
-			PageSize: 10,
-			NumRetry: 2,
-		},
-		ClusterDBConfig: &conf.ClusterDBConfig{
-			ClusterKeySpace:   "",
-			DBConfig:          conf.CassandraConfig{},
-			EntityHistorySize: 0,
+		Conf: &conf.Configuration{
+			Cluster: conf.ClusterConfig{
+				PageSize: 10,
+				NumRetry: 2,
+			},
+			ClusterDB: conf.ClusterDBConfig{
+				ClusterKeySpace:   "",
+				DBConfig:          conf.CassandraConfig{},
+				EntityHistorySize: 0,
+			},
+			Poller: conf.PollerConfig{
+				Interval:     60,
+				DefaultCount: 5,
+			},
+			CronConfig: conf.CronConfig{
+				App: "Athena",
+			},
 		},
 		AppMap: AppMap{
 			lock: sync.RWMutex{},

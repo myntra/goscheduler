@@ -107,7 +107,7 @@ func (s *Service) Register(w http.ResponseWriter, r *http.Request) {
 
 	s.recordRegisterSuccess()
 	status := Status{StatusCode: constants.SuccessCode201, StatusMessage: constants.Success, StatusType: constants.Success, TotalCount: 1}
-	_ = json.NewEncoder(w).Encode(CreateAppResponse{Status: status, Data: CreateAppData{AppId: input.AppId, Partitions: input.Partitions, Active: input.Active}})
+	_ = json.NewEncoder(w).Encode(CreateAppResponse{Status: status, Data: CreateAppData{AppId: input.AppId, Partitions: input.Partitions, Active: input.Active, Configuration: input.Configuration}})
 }
 
 func (s *Service) RegisterApp(input store.App) (store.App, error) {

@@ -53,8 +53,8 @@ func initCassandra(conf *c.Configuration) {
 
 // initDAOs creates and returns the implementation objects for the Cluster and Schedule data access objects.
 func initDAOs(conf *c.Configuration, monitoring *m.Monitoring) (dao.ClusterDao, dao.ScheduleDao) {
-	clusterDao := dao.GetClusterDaoImpl(&conf.Cluster, &conf.ClusterDB)
-	scheduleDao := dao.GetScheduleDaoImpl(&conf.Cluster, &conf.ScheduleDB, &conf.AggregateSchedulesConfig, monitoring)
+	clusterDao := dao.GetClusterDaoImpl(conf, monitoring)
+	scheduleDao := dao.GetScheduleDaoImpl(conf, monitoring)
 	return clusterDao, scheduleDao
 }
 

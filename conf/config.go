@@ -40,9 +40,11 @@ type ClusterConfig struct {
 	BootStrapServers []string // List of bootstrap servers for cluster formation
 	JoinSize         int      // Number of nodes required to form a cluster
 	Log              Log      // Logging configuration
-	PageSize         int      // Page size for pagination
-	NumRetry         int      // Number of retries for failed operations
-	ReplicaPoints    int      // Number of replica points for data replication
+
+	//TODO: move it to DB config
+	PageSize      int // Page size for pagination
+	NumRetry      int // Number of retries for failed operations
+	ReplicaPoints int // Number of replica points for data replication
 }
 
 // Log represents the logging configuration, including whether logging is enabled.
@@ -178,6 +180,31 @@ type MonitoringConfig struct {
 	Statsd *StatsdConfig // Configuration options for Statsd
 }
 
+type AppLevelConfiguration struct {
+	// Requests are rejected if the schedule time is beyond specified FutureScheduleCreationPeriod (in days) from current time
+	FutureScheduleCreationPeriod int
+
+	// Period in days for which schedules are kept in DB after the schedules are fired
+	FiredScheduleRetentionPeriod int
+
+	// Maximum Payload size in bytes allowed
+	PayloadSize int
+
+	// Http Retries for requests
+	HttpRetries int
+
+	// HTTP Timeout in milliseconds for requests
+	HttpTimeout int
+}
+
+type DCConfig struct {
+	// used to prefix appIds
+	Prefix string
+
+	// location of the DC
+	Location string
+}
+
 // GetAddress concatenates host and port strings and returns an address in the
 // format of "host:port".
 func GetAddress(host string, port string) string {
@@ -201,6 +228,8 @@ type Configuration struct {
 	VaultConfig              VaultConfig              // Configuration options for Vault
 	NodeCrashReconcile       NodeCrashReconcile       // Configuration options for node crash reconciliation
 	BulkActionConfig         BulkActionConfig         // Configuration options for bulk actions
+	AppLevelConfiguration    AppLevelConfiguration    // Configuration options for app level configuration
+	DCConfig                 DCConfig                 // Configuration options for DC configuration
 }
 
 var defaultConfig = Configuration{
@@ -277,6 +306,17 @@ var defaultConfig = Configuration{
 	BulkActionConfig: BulkActionConfig{
 		BufferSize: 1000,
 		Routines:   10,
+	},
+	AppLevelConfiguration: AppLevelConfiguration{
+		FutureScheduleCreationPeriod: 7,
+		FiredScheduleRetentionPeriod: 1,
+		PayloadSize:                  1024,
+		HttpRetries:                  1,
+		HttpTimeout:                  1000,
+	},
+	DCConfig: DCConfig{
+		Prefix:   "",
+		Location: "Local",
 	},
 }
 
@@ -369,6 +409,18 @@ func WithNodeCrashReconcileConfig(reconcile NodeCrashReconcile) Option {
 func WithBulkActionConfig(bulkActionConfig BulkActionConfig) Option {
 	return func(c *Configuration) {
 		c.BulkActionConfig = bulkActionConfig
+	}
+}
+
+func WithAppLevelConfiguration(appLevelConfiguration AppLevelConfiguration) Option {
+	return func(c *Configuration) {
+		c.AppLevelConfiguration = appLevelConfiguration
+	}
+}
+
+func WithDCConfiguration(dcConfig DCConfig) Option {
+	return func(c *Configuration) {
+		c.DCConfig = dcConfig
 	}
 }
 

@@ -64,4 +64,5 @@ const (
 	GetConfiguration                         = "GetConfiguration"
 	UpdateConfiguration                      = "UpdateConfiguration"
 	DeleteConfiguration                      = "DeleteConfiguration"
+	DCPrefix                                 = "_"
 )

@@ -79,7 +79,7 @@ func (c *Connector) updateStatus(buf <-chan s.StatusTask) {
 		batch := statusTask.Schedules
 		if len(batch) > 0 {
 			c.recordAndLog(
-				func() error { return c.ScheduleDao.UpdateStatus(batch) },
+				func() error { return c.ScheduleDao.UpdateStatus(batch, statusTask.App) },
 				statusUpdatePrefix(batch[0].AppId, batch[0].PartitionId, len(batch)))
 		}
 	}

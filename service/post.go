@@ -89,7 +89,7 @@ func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 		return sch.Schedule{}, err
 	}
 
-	errs := input.ValidateSchedule(app)
+	errs := input.ValidateSchedule(app, s.Config.AppLevelConfiguration)
 	if errs != nil && len(errs) > 0 {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, errors.New(strings.Join(errs, ",")))
 	}

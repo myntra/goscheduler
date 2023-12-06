@@ -105,7 +105,7 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 
 				clone := parent.CloneAsOneTime(_time)
 				clone.SetFields(app)
-				if errs := clone.ValidateSchedule(app); len(errs) != 0 {
+				if errs := clone.ValidateSchedule(app, c.Config.AppLevelConfiguration); len(errs) != 0 {
 					glog.Errorf(
 						"Validation failed for one time schedule %v of cron %s with errors %v",
 						clone, parent.ScheduleId, errs)

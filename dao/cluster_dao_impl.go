@@ -30,6 +30,7 @@ import (
 	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/db_wrapper"
+	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
 	"strconv"
 	"sync"
@@ -41,11 +42,10 @@ type AppMap struct {
 }
 
 type ClusterDaoImplCassandra struct {
-	Session db_wrapper.SessionInterface
-	AppMap  AppMap
-	//TODO: Can we merge this?
-	ClusterConfig   *conf.ClusterConfig
-	ClusterDBConfig *conf.ClusterDBConfig
+	Session    db_wrapper.SessionInterface
+	AppMap     AppMap
+	Conf       *conf.Configuration
+	Monitoring *p.Monitoring
 }
 
 var (
@@ -59,30 +59,30 @@ var (
 	KeyGetEntity         = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id='%s';"
 	KeyUpdateEntityInfo  = "UPDATE " + KeyEntityTable + " SET nodename='%s', status=%d, history='%s' WHERE id='%s';"
 	QueryInsertEntity    = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
-	QueryInsertApp       = "INSERT INTO " + KeyAppTable + " (id, partitions, active) VALUES (?, ?, ?)"
-	KeyAppById           = "SELECT id, partitions, active FROM " + KeyAppTable + " WHERE id='%s';"
+	QueryInsertApp       = "INSERT INTO " + KeyAppTable + " (id, partitions, active, configuration) VALUES (?, ?, ?, ?)"
+	KeyAppById           = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id='%s';"
 	KeyAppByIds          = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
-	KeyGelAllApps        = "SELECT id, partitions, active FROM " + KeyAppTable + ";"
+	KeyGelAllApps        = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + ";"
 	QueryUpdateAppStatus = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
 	QueryGetConfig       = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
 	QueryUpdateConfig    = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
 )
 
 // TODO: Should we make it singleton?
-func GetClusterDaoImpl(clusterConfig *conf.ClusterConfig, clusterDBConfig *conf.ClusterDBConfig) *ClusterDaoImplCassandra {
-	session, err := cassandra.GetSessionInterface(clusterDBConfig.DBConfig, clusterDBConfig.ClusterKeySpace)
+func GetClusterDaoImpl(conf *conf.Configuration, monitoring *p.Monitoring) *ClusterDaoImplCassandra {
+	session, err := cassandra.GetSessionInterface(conf.ClusterDB.DBConfig, conf.ClusterDB.ClusterKeySpace)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", clusterDBConfig.DBConfig, err.Error()))
+		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", conf.ClusterDB.DBConfig, err.Error()))
 		panic(err)
 	}
 	return &ClusterDaoImplCassandra{
-		Session:         session,
-		ClusterConfig:   clusterConfig,
-		ClusterDBConfig: clusterDBConfig,
+		Session: session,
+		Conf:    conf,
 		AppMap: AppMap{
 			lock: sync.RWMutex{},
 			m:    make(map[string]store.App),
 		},
+		Monitoring: monitoring,
 	}
 }
 
@@ -94,8 +94,8 @@ func (c *ClusterDaoImplCassandra) getDefaultApps() (map[string]bool, error) {
 	apps := make(map[string]bool)
 
 	iter := c.Session.
-		Query(KeyAppByIds, MaxConfigApp, conf.GlobalConfig.CronConfig.App).
-		Consistency(c.ClusterDBConfig.DBConfig.Consistency).
+		Query(KeyAppByIds, MaxConfigApp, c.Conf.CronConfig.App).
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
 		Iter()
 
 	for iter.Scan(&appId, &partitions, &active, &config) {
@@ -119,11 +119,11 @@ func (c *ClusterDaoImplCassandra) createDefaultAppsIfRequired() {
 
 	if _, ok := apps[MaxConfigApp]; !ok {
 		configuration := store.Configuration{
-			FutureScheduleCreationPeriod: conf.GlobalConfig.AppLevelConfiguration.FutureScheduleCreationPeriod,
-			FiredScheduleRetentionPeriod: conf.GlobalConfig.AppLevelConfiguration.FiredScheduleRetentionPeriod,
-			PayloadSize:                  conf.GlobalConfig.AppLevelConfiguration.PayloadSize,
-			HttpRetries:                  conf.GlobalConfig.AppLevelConfiguration.HttpRetries,
-			HttpTimeout:                  conf.GlobalConfig.AppLevelConfiguration.HttpTimeout,
+			FutureScheduleCreationPeriod: c.Conf.AppLevelConfiguration.FutureScheduleCreationPeriod,
+			FiredScheduleRetentionPeriod: c.Conf.AppLevelConfiguration.FiredScheduleRetentionPeriod,
+			PayloadSize:                  c.Conf.AppLevelConfiguration.PayloadSize,
+			HttpRetries:                  c.Conf.AppLevelConfiguration.HttpRetries,
+			HttpTimeout:                  c.Conf.AppLevelConfiguration.HttpTimeout,
 		}
 
 		maxConfigApp := store.App{
@@ -140,10 +140,10 @@ func (c *ClusterDaoImplCassandra) createDefaultAppsIfRequired() {
 		glog.Info("maxConfig app created!")
 	}
 
-	if _, ok := apps[conf.GlobalConfig.CronConfig.App]; !ok {
+	if _, ok := apps[c.Conf.CronConfig.App]; !ok {
 		cronApp := store.App{
-			AppId:         conf.GlobalConfig.CronConfig.App,
-			Partitions:    conf.GlobalConfig.Poller.DefaultCount,
+			AppId:         c.Conf.CronConfig.App,
+			Partitions:    c.Conf.Poller.DefaultCount,
 			Active:        true,
 			Configuration: store.Configuration{},
 		}
@@ -156,7 +156,7 @@ func (c *ClusterDaoImplCassandra) createDefaultAppsIfRequired() {
 		for ; partition < cronApp.Partitions; partition++ {
 			entity := e.EntityInfo{
 				Id:      cronApp.AppId + constants.PollerKeySep + strconv.Itoa(int(partition)),
-				Node:    conf.GlobalConfig.RpConfig.GetAddress(),
+				Node:    c.Conf.Cluster.Address,
 				Status:  0,
 				History: "",
 			}
@@ -178,7 +178,10 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfoOfNode(nodeName string) []e.
 	var entities []e.EntityInfo
 
 	query := fmt.Sprintf(KeyEntitiesOfNode, nodeName)
-	iter := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).PageSize(c.ClusterConfig.PageSize).Iter()
+	iter := c.Session.
+		Query(query).
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
+		PageSize(c.Conf.Cluster.PageSize).Iter()
 
 	for iter.Scan(&id, &status) {
 		entities = append(entities, e.EntityInfo{Id: id, Node: nodeName, Status: status})
@@ -204,8 +207,8 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 	var entities []e.EntityInfo
 	iter := c.Session.
 		Query(KeyGetAllEntities).
-		Consistency(c.ClusterDBConfig.DBConfig.Consistency).
-		PageSize(c.ClusterConfig.PageSize).
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
+		PageSize(c.Conf.Cluster.PageSize).
 		Iter()
 
 	for iter.Scan(&id, &nodeName, &status, &history) {
@@ -230,7 +233,7 @@ func (c *ClusterDaoImplCassandra) GetEntityInfo(id string) e.EntityInfo {
 	query := fmt.Sprintf(KeyGetEntity, id)
 	glog.Info(query)
 
-	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&id, &nodeName, &status, &history); err != nil {
+	if err := c.Session.Query(query).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).Scan(&id, &nodeName, &status, &history); err != nil {
 		glog.Errorf("Error %s while querying %s", err.Error(), query)
 		return e.EntityInfo{}
 	}
@@ -282,7 +285,7 @@ func (c *ClusterDaoImplCassandra) getApp(appName string) (store.App, error) {
 	var configuration store.Configuration
 
 	query := fmt.Sprintf(KeyAppById, appName)
-	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&id, &partitions, &active, &config); err != nil {
+	if err := c.Session.Query(query).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).Scan(&id, &partitions, &active, &config); err != nil {
 		glog.Errorf("Error %s while querying %s", err.Error(), query)
 		return store.App{}, err
 	}
@@ -332,8 +335,8 @@ func (c *ClusterDaoImplCassandra) UpdateEntityStatus(id string, nodename string,
 	}
 
 	historyLen := len(history)
-	if historyLen > c.ClusterDBConfig.EntityHistorySize {
-		history = history[historyLen-c.ClusterDBConfig.EntityHistorySize : historyLen]
+	if historyLen > c.Conf.ClusterDB.EntityHistorySize {
+		history = history[historyLen-c.Conf.ClusterDB.EntityHistorySize : historyLen]
 	}
 	query := fmt.Sprintf(KeyUpdateEntityInfo, nodename, status, history, id)
 	glog.Info(query)
@@ -344,7 +347,7 @@ func (c *ClusterDaoImplCassandra) UpdateEntityStatus(id string, nodename string,
 func (c *ClusterDaoImplCassandra) CreateEntity(entityInfo e.EntityInfo) error {
 	return c.Session.Query(QueryInsertEntity,
 		entityInfo.Id,
-		c.ClusterConfig.Address,
+		c.Conf.Cluster.Address,
 		0).Exec()
 }
 
@@ -367,7 +370,7 @@ func (c *ClusterDaoImplCassandra) GetApps(appId string) ([]store.App, error) {
 		return apps, nil
 	}
 
-	iter := c.Session.Query(KeyGelAllApps).Consistency(c.ClusterDBConfig.DBConfig.Consistency).PageSize(c.ClusterConfig.PageSize).Iter()
+	iter := c.Session.Query(KeyGelAllApps).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).PageSize(c.Conf.Cluster.PageSize).Iter()
 	for iter.Scan(&id, &partitions, &active, &config) {
 		configuration = store.Configuration{}
 		if err := json.Unmarshal([]byte(config), &configuration); err != nil {
@@ -410,7 +413,7 @@ func (c *ClusterDaoImplCassandra) InvalidateSingleAppCache(appName string) {
 func (c *ClusterDaoImplCassandra) GetDCAwareApp(appName string) (store.App, error) {
 	// check in memory cache for app
 	c.AppMap.lock.RLock()
-	dcPrefixedApp, dcPrefixedFound := c.AppMap.m[conf.GlobalConfig.DCConfig.Prefix+constants.DCPrefix+appName]
+	dcPrefixedApp, dcPrefixedFound := c.AppMap.m[c.Conf.DCConfig.Prefix+appName]
 	fallbackApp, fallbackFound := c.AppMap.m[appName]
 	c.AppMap.lock.RUnlock()
 
@@ -432,10 +435,10 @@ func (c *ClusterDaoImplCassandra) getDCAwareApp(appName string) (store.App, erro
 	var configuration store.Configuration
 
 	// add dc prefix to app name
-	dcPrefixedAppName := conf.GlobalConfig.DCConfig.Prefix + constants.DCPrefix + appName
+	dcPrefixedAppName := c.Conf.DCConfig.Prefix + constants.DCPrefix + appName
 
 	appIdToApp := make(map[string]store.App)
-	iter := c.Session.Query(KeyAppByIds, dcPrefixedAppName, appName).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Iter()
+	iter := c.Session.Query(KeyAppByIds, dcPrefixedAppName, appName).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).Iter()
 
 	for iter.Scan(&appId, &partitions, &active, &config) {
 		configuration = store.Configuration{}
@@ -498,7 +501,7 @@ func (c *ClusterDaoImplCassandra) GetConfiguration(appId string) (store.Configur
 	query = fmt.Sprintf(QueryGetConfig, appId)
 	glog.Info(query)
 
-	if err := c.Session.Query(query).Consistency(c.ClusterDBConfig.DBConfig.Consistency).Scan(&config); err != nil {
+	if err := c.Session.Query(query).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).Scan(&config); err != nil {
 		return configuration, err
 	}
 

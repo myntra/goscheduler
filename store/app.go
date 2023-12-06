@@ -31,18 +31,18 @@ type AppErrorResponse struct {
 }
 
 // GetMaxTTL gets maxCassandraTTL in seconds
-func (a App) GetMaxTTL() int {
+func (a App) GetMaxTTL(maxTTL int) int {
 	if a.Configuration.FutureScheduleCreationPeriod == 0 {
-		return 60 * 60 * 24 * conf.GlobalConfig.AppLevelConfiguration.FutureScheduleCreationPeriod
+		return 60 * 60 * 24 * maxTTL
 	}
 
 	return 60 * 60 * 24 * a.Configuration.FutureScheduleCreationPeriod
 }
 
-// getBufferTTL gets bufferCassandraTTL in seconds
-func (a App) GetBufferTTL() int {
+// GetBufferTTL gets bufferCassandraTTL in seconds
+func (a App) GetBufferTTL(bufferTTL int) int {
 	if a.Configuration.FiredScheduleRetentionPeriod == 0 {
-		return 60 * 60 * 24 * conf.GlobalConfig.AppLevelConfiguration.FiredScheduleRetentionPeriod
+		return 60 * 60 * 24 * bufferTTL
 	}
 
 	return 60 * 60 * 24 * a.Configuration.FiredScheduleRetentionPeriod

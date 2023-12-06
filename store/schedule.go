@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
+	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/cron"
 	"github.com/myntra/goscheduler/util"
@@ -211,8 +212,8 @@ func (s Schedule) CheckUntriggeredCallback(flushPeriod int) bool {
 
 // GetTTL TTL will be set at schedule level
 // ttl = scheduleTime - now
-func (s Schedule) GetTTL(app App) int {
-	return int(s.ScheduleTime-time.Now().Unix()) + app.GetBufferTTL()
+func (s Schedule) GetTTL(app App, bufferTTL int) int {
+	return int(s.ScheduleTime-time.Now().Unix()) + app.GetBufferTTL(bufferTTL)
 }
 
 // Set status, error_msg and reconciliation_history of the schedule from map
@@ -300,7 +301,7 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Schedule) ValidateSchedule(app App) []string {
+func (s *Schedule) ValidateSchedule(app App, conf conf.AppLevelConfiguration) []string {
 	glog.Infof("ValidateSchedule: %+v", s)
 	var errs []string
 
@@ -312,7 +313,7 @@ func (s *Schedule) ValidateSchedule(app App) []string {
 		errs = append(errs, errStr)
 	}
 
-	if errStr := validatePayloadSize(s.Payload, app); errStr != "" {
+	if errStr := validatePayloadSize(s.Payload, app, conf.PayloadSize); errStr != "" {
 		errs = append(errs, errStr)
 	}
 
@@ -325,7 +326,7 @@ func (s *Schedule) ValidateSchedule(app App) []string {
 			errs = append(errs, er...)
 		}
 	} else {
-		if errStr := validateScheduleTime(s.ScheduleTime, app); errStr != "" {
+		if errStr := validateScheduleTime(s.ScheduleTime, app, conf.FutureScheduleCreationPeriod); errStr != "" {
 			errs = append(errs, errStr)
 		}
 	}
@@ -354,28 +355,28 @@ func validateField(fieldData string, field string) string {
 	return ""
 }
 
-func validateScheduleTime(scheduleTime int64, app App) string {
+func validateScheduleTime(scheduleTime int64, app App, maxTTL int) string {
 	now := time.Now().Unix()
 	if scheduleTime < now {
 		return fmt.Sprintf("schedule time : %d is less than current time: %d for app: %s. Time cannot be in past.",
 			scheduleTime,
 			now,
 			app.AppId)
-	} else if (scheduleTime - now) > int64(app.GetMaxTTL()) {
+	} else if (scheduleTime - now) > int64(app.GetMaxTTL(maxTTL)) {
 		return fmt.Sprintf("schedule time : %d cannot be more than %d days from current time : %d for app: %s",
 			scheduleTime,
-			app.GetMaxTTL()/(24*60*60),
+			app.GetMaxTTL(maxTTL)/(24*60*60),
 			now,
 			app.AppId)
 	}
 	return ""
 }
 
-func validatePayloadSize(payload string, app App) string {
+func validatePayloadSize(payload string, app App, maxPayload int) string {
 	var maxPayloadSize int
 
 	if app.Configuration.PayloadSize == 0 {
-		maxPayloadSize = conf.GlobalConfig.AppLevelConfiguration.PayloadSize
+		maxPayloadSize = maxPayload
 	} else {
 		maxPayloadSize = app.Configuration.PayloadSize
 	}
