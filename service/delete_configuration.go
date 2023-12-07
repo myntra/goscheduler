@@ -34,7 +34,7 @@ func (s *Service) DeleteConfiguration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appId := vars["app_id"]
 
-	app, err = s.clusterDao.GetApp(appId)
+	app, err = s.ClusterDao.GetApp(appId)
 
 	switch {
 	case err == gocql.ErrNotFound:
@@ -46,7 +46,7 @@ func (s *Service) DeleteConfiguration(w http.ResponseWriter, r *http.Request) {
 		s.recordDeleteConfigurationFail()
 
 	default:
-		if config, err = s.clusterDao.DeleteConfiguration(app.AppId); err != nil {
+		if config, err = s.ClusterDao.DeleteConfiguration(app.AppId); err != nil {
 			er.Handle(w, r, er.NewError(er.DataPersistenceFailure, err))
 			s.recordDeleteConfigurationFail()
 			return

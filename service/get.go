@@ -80,7 +80,7 @@ func (s *Service) GetSchedule(uuid string) (sch.Schedule, error) {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedule, err := s.scheduleDao.GetEnrichedSchedule(scheduleId); err {
+	switch schedule, err := s.ScheduleDao.GetEnrichedSchedule(scheduleId); err {
 	case gocql.ErrNotFound:
 		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
 	case nil:

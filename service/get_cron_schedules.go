@@ -78,12 +78,12 @@ func (s *Service) GetCronSchedules(w http.ResponseWriter, r *http.Request) {
 				StatusMessage: constants.Success,
 				StatusType:    constants.Success,
 			},
-			Data:   cronSchedules,
+			Data: cronSchedules,
 		})
 }
 
 func (s *Service) FetchCronSchedules(appId string, status sch.Status) ([]sch.Schedule, error) {
-	switch cronSchedules, errs := (s.scheduleDao).GetCronSchedulesByApp(appId, status); {
+	switch cronSchedules, errs := (s.ScheduleDao).GetCronSchedulesByApp(appId, status); {
 	case len(errs) != 0:
 		return []sch.Schedule{}, er.NewError(er.DataFetchFailure, errors.New(strings.Join(errs, ",")))
 	case len(cronSchedules) == 0:

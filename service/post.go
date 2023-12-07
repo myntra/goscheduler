@@ -104,7 +104,7 @@ func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 
 	input.SetFields(app)
 
-	schedule, err := s.scheduleDao.CreateSchedule(input, app)
+	schedule, err := s.ScheduleDao.CreateSchedule(input, app)
 	if err != nil {
 		return sch.Schedule{}, er.NewError(er.DataPersistenceFailure, err)
 	}
@@ -114,7 +114,7 @@ func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 
 // getApp retrieves the app based on the provided app ID
 func (s *Service) getApp(appId string) (sch.App, error) {
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	switch {
 	case err == gocql.ErrNotFound:
 		return sch.App{}, er.NewError(er.InvalidAppId, errors.New(fmt.Sprintf("app Id %s is not registered", appId)))

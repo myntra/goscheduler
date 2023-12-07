@@ -241,7 +241,7 @@ func (s *Service) FetchAppSchedules(appId string, timeRange dao.Range, size int6
 		return []sch.Schedule{}, nil, time.Now(), err
 	}
 
-	schedules, pageState, continuationStartTime, err := s.scheduleDao.GetPaginatedSchedules(appId, int(app.Partitions), timeRange, size, status, pageState, continuationStartTime)
+	schedules, pageState, continuationStartTime, err := s.ScheduleDao.GetPaginatedSchedules(appId, int(app.Partitions), timeRange, size, status, pageState, continuationStartTime)
 	if err != nil {
 		return []sch.Schedule{}, nil, time.Now(), er.NewError(er.DataFetchFailure, err)
 	}
@@ -250,7 +250,7 @@ func (s *Service) FetchAppSchedules(appId string, timeRange dao.Range, size int6
 }
 
 func (s *Service) getActiveOrInactiveApp(appId string) (sch.App, error) {
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	switch {
 	case err == gocql.ErrNotFound:
 		return sch.App{}, er.NewError(er.InvalidAppId, errors.New(fmt.Sprintf("app id %s is not registered", appId)))

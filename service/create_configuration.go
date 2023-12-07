@@ -44,7 +44,7 @@ func (s *Service) CreateConfiguration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app, err = s.clusterDao.GetApp(appId)
+	app, err = s.ClusterDao.GetApp(appId)
 
 	switch {
 	case err == gocql.ErrNotFound:
@@ -56,7 +56,7 @@ func (s *Service) CreateConfiguration(w http.ResponseWriter, r *http.Request) {
 		s.recordCreateConfigurationFail()
 
 	default:
-		if config, err = s.clusterDao.CreateConfigurations(app.AppId, input); err != nil {
+		if config, err = s.ClusterDao.CreateConfigurations(app.AppId, input); err != nil {
 			er.Handle(w, r, er.NewError(er.DataPersistenceFailure, err))
 			s.recordCreateConfigurationFail()
 			return

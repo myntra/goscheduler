@@ -131,7 +131,7 @@ func (s *Service) FetchCronRuns(uuid string, size int64, when string, pageState 
 		return []sch.Schedule{}, nil, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedules, pageState, err := (s.scheduleDao).GetScheduleRuns(scheduleId, size, when, pageState); {
+	switch schedules, pageState, err := (s.ScheduleDao).GetScheduleRuns(scheduleId, size, when, pageState); {
 	case err != nil:
 		return []sch.Schedule{}, nil, er.NewError(er.DataFetchFailure, err)
 	case len(schedules) == 0:

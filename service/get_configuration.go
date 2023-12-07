@@ -32,7 +32,7 @@ func (s *Service) GetConfiguration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appId := vars["app_id"]
 
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 
 	switch {
 	case err == gocql.ErrNotFound:
@@ -44,7 +44,7 @@ func (s *Service) GetConfiguration(w http.ResponseWriter, r *http.Request) {
 		s.recordGetConfigurationFail()
 
 	default:
-		if configuration, err = s.clusterDao.GetConfiguration(app.AppId); err != nil {
+		if configuration, err = s.ClusterDao.GetConfiguration(app.AppId); err != nil {
 			er.Handle(w, r, er.NewError(er.DataNotFound, err))
 			s.recordGetConfigurationFail()
 			return

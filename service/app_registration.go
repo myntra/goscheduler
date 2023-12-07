@@ -120,7 +120,7 @@ func (s *Service) RegisterApp(input store.App) (store.App, error) {
 		input.Partitions = s.Config.Poller.DefaultCount
 	}
 
-	err = s.clusterDao.InsertApp(input)
+	err = s.ClusterDao.InsertApp(input)
 	if err != nil {
 		return store.App{}, er.NewError(er.DataPersistenceFailure, err)
 	}
@@ -143,7 +143,7 @@ func (s *Service) createEntities(input store.App) error {
 			History: "",
 		}
 
-		err := s.clusterDao.CreateEntity(entity)
+		err := s.ClusterDao.CreateEntity(entity)
 		if err != nil {
 			return er.NewError(er.DataPersistenceFailure, err)
 		}
@@ -151,7 +151,7 @@ func (s *Service) createEntities(input store.App) error {
 		// We are calling boot entity with forward true. This is forward the request to the correct node
 		// if the current node is not the node to start the entity.
 		// TODO: Handle the error
-		err = s.supervisor.BootEntity(entity, true)
+		err = s.Supervisor.BootEntity(entity, true)
 		if err != nil {
 			return er.NewError(er.EntityBootFailed, err)
 		}
@@ -182,7 +182,7 @@ func (s *Service) DeactivateApp(appId string) error {
 		return err
 	}
 
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	if err != nil {
 		return er.NewError(er.InvalidAppId, errors.New("unregistered App"))
 	}
@@ -191,12 +191,12 @@ func (s *Service) DeactivateApp(appId string) error {
 		return er.NewError(er.DeactivatedApp, errors.New("app is already deactivated"))
 	}
 
-	err = s.clusterDao.UpdateAppActiveStatus(appId, false)
+	err = s.ClusterDao.UpdateAppActiveStatus(appId, false)
 	if err != nil {
 		return er.NewError(er.DataPersistenceFailure, err)
 	}
 
-	s.supervisor.DeactivateApp(app)
+	s.Supervisor.DeactivateApp(app)
 	return nil
 }
 
@@ -222,7 +222,7 @@ func (s *Service) ActivateApp(appId string) error {
 		return err
 	}
 
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	if err != nil {
 		return er.NewError(er.InvalidAppId, errors.New("unregistered App"))
 	}
@@ -231,11 +231,11 @@ func (s *Service) ActivateApp(appId string) error {
 		return er.NewError(er.ActivatedApp, errors.New("app is already activated"))
 	}
 
-	err = s.clusterDao.UpdateAppActiveStatus(appId, true)
+	err = s.ClusterDao.UpdateAppActiveStatus(appId, true)
 	if err != nil {
 		return er.NewError(er.DataPersistenceFailure, err)
 	}
 
-	s.supervisor.ActivateApp(app)
+	s.Supervisor.ActivateApp(app)
 	return nil
 }

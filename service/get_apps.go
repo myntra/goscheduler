@@ -73,7 +73,7 @@ func (s *Service) GetApps(w http.ResponseWriter, r *http.Request) {
 		Apps: apps,
 	}
 
-	_ =  json.NewEncoder(w).Encode(
+	_ = json.NewEncoder(w).Encode(
 		GetAppsResponse{
 			Status: status,
 			Data:   data,
@@ -81,7 +81,7 @@ func (s *Service) GetApps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) FetchApps(appId string) ([]store.App, error) {
-	switch apps, err := s.clusterDao.GetApps(appId); {
+	switch apps, err := s.ClusterDao.GetApps(appId); {
 	case err != nil:
 		return []store.App{}, er.NewError(er.DataFetchFailure, err)
 	case len(apps) == 0:

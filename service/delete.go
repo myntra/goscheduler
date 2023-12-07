@@ -81,7 +81,7 @@ func (s *Service) DeleteSchedule(uuid string) (sch.Schedule, error) {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedule, err := s.scheduleDao.DeleteSchedule(scheduleId); err {
+	switch schedule, err := s.ScheduleDao.DeleteSchedule(scheduleId); err {
 	case gocql.ErrNotFound:
 		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
 	case nil:

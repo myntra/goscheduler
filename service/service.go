@@ -28,18 +28,18 @@ import (
 
 type Service struct {
 	Config      *c.Configuration
-	supervisor  cluster.SupervisorHandler
-	clusterDao  dao.ClusterDao
-	scheduleDao dao.ScheduleDao
+	Supervisor  cluster.SupervisorHandler
+	ClusterDao  dao.ClusterDao
+	ScheduleDao dao.ScheduleDao
 	Monitoring  *monitoring.Monitoring
 }
 
 func NewService(config *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitoring *monitoring.Monitoring) *Service {
 	return &Service{
 		Config:      config,
-		supervisor:  supervisor,
-		clusterDao:  clusterDao,
-		scheduleDao: scheduleDAO,
+		Supervisor:  supervisor,
+		ClusterDao:  clusterDao,
+		ScheduleDao: scheduleDAO,
 		Monitoring:  monitoring,
 	}
 }
