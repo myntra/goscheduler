@@ -1,5 +1,6 @@
 {
   "HttpPort": "8080",
+  "SchemaPath": "/src/goscheduler/cassandra/cassandra.cql",
   "Cluster": {
     "ClusterName": "goscheduler",
     "Address": "127.0.0.1:9091",

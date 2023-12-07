@@ -48,7 +48,7 @@ type Scheduler struct {
 
 // initCassandra initializes the Cassandra database with the given configuration and schema.
 func initCassandra(conf *c.Configuration) {
-	cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+"/src/goscheduler/cassandra/cassandra.cql")
+	cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+conf.SchemaPath)
 }
 
 // initDAOs creates and returns the implementation objects for the Cluster and Schedule data access objects.
@@ -129,6 +129,27 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	supervisor := initSupervisor(conf, retrievers, clusterDao, monitoring)
 	connectors := initConnectors(conf, clusterDao, schedulerDao, monitoring)
 	service := initService(conf, supervisor, clusterDao, schedulerDao, monitoring)
+	router := mux.NewRouter().StrictSlash(true)
+	initServer(conf, router, service)
+	return &Scheduler{
+		Config:     conf,
+		Router:     router,
+		Supervisor: supervisor,
+		Service:    service,
+		Connectors: connectors,
+		Monitoring: monitoring,
+	}
+}
+
+// NewScheduler creates a new Scheduler instance with a given configuration, callback factories and Daos.
+func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao) *Scheduler {
+	initCassandra(conf)
+	initCallbackRegistry(callbackFactories)
+	monitoring := initMonitoring(conf)
+	retrievers := initRetrievers(conf, clusterDao, scheduleDao, monitoring)
+	supervisor := initSupervisor(conf, retrievers, clusterDao, monitoring)
+	connectors := initConnectors(conf, clusterDao, scheduleDao, monitoring)
+	service := initService(conf, supervisor, clusterDao, scheduleDao, monitoring)
 	router := mux.NewRouter().StrictSlash(true)
 	initServer(conf, router, service)
 	return &Scheduler{

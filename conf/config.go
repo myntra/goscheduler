@@ -216,6 +216,7 @@ func GetAddress(host string, port string) string {
 type Configuration struct {
 	HttpPort                 string                   // Port for the HTTP server
 	ConfigFile               string                   `json:"-"` // Configuration file path
+	SchemaPath               string                   // Configuration options for Cassandra Schema path
 	Cluster                  ClusterConfig            // Configuration options for the cluster
 	ClusterDB                ClusterDBConfig          // Configuration options for the cluster database
 	ScheduleDB               ScheduleDBConfig         // Configuration options for the schedule database
@@ -235,6 +236,7 @@ type Configuration struct {
 var defaultConfig = Configuration{
 	HttpPort:   "8080",
 	ConfigFile: "./conf/conf.json",
+	SchemaPath: "/src/goscheduler/cassandra/cassandra.cql",
 	Cluster: ClusterConfig{
 		ClusterName:      "goscheduler",
 		Address:          "127.0.0.1:9091",
@@ -331,6 +333,12 @@ func WithHTTPPort(port string) Option {
 func WithConfigFile(configFile string) Option {
 	return func(c *Configuration) {
 		c.ConfigFile = configFile
+	}
+}
+
+func WithSchemaPath(schemaPath string) Option {
+	return func(c *Configuration) {
+		c.SchemaPath = schemaPath
 	}
 }
 

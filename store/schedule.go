@@ -67,6 +67,21 @@ type Schedule struct {
 	ErrorMessage          string                  `json:"errorMessage,omitempty"`
 	ParentScheduleId      gocql.UUID              `json:"-"`
 	ReconciliationHistory []ReconciliationHistory `json:"reconciliationHistory,omitempty"`
+	//Deprecated
+	Ttl            int            `json:"-"`
+	AirbusCallback AirbusCallback `json:"airbusCallback,omitempty"`
+	HttpCallback   HTTPCallback   `json:"httpCallback,omitempty"`
+}
+
+type AirbusCallback struct {
+	EventName string            `json:"eventName,omitempty"`
+	AppName   string            `json:"appName,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
+}
+
+type HTTPCallback struct {
+	Url     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
 }
 
 type ReconciliationHistory struct {
