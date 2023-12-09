@@ -20,8 +20,6 @@
 package scheduler
 
 import (
-	"os"
-
 	"github.com/gorilla/mux"
 	"github.com/myntra/goscheduler/cassandra"
 	"github.com/myntra/goscheduler/cluster"
@@ -34,6 +32,7 @@ import (
 	"github.com/myntra/goscheduler/server"
 	s "github.com/myntra/goscheduler/service"
 	st "github.com/myntra/goscheduler/store"
+	"os"
 )
 
 // Scheduler is a struct that holds pointers to various components of the scheduler.
@@ -47,8 +46,10 @@ type Scheduler struct {
 }
 
 // initCassandra initializes the Cassandra database with the given configuration and schema.
-func initCassandra(conf *c.Configuration) {
-	cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+conf.SchemaPath)
+func initCassandra(conf *c.Configuration, createSchema bool) {
+	if createSchema {
+		cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+conf.SchemaPath)
+	}
 }
 
 // initDAOs creates and returns the implementation objects for the Cluster and Schedule data access objects.
@@ -121,7 +122,7 @@ func initCallbackRegistry(registry map[string]st.Factory) {
 // New creates a new Scheduler instance with a given configuration and callback factories.
 // This is a base constructor that uses configuration and callback factory objects directly.
 func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Scheduler {
-	initCassandra(conf)
+	initCassandra(conf, true)
 	initCallbackRegistry(callbackFactories)
 	monitoring := initMonitoring(conf)
 	clusterDao, schedulerDao := initDAOs(conf, monitoring)
@@ -142,8 +143,8 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 }
 
 // NewScheduler creates a new Scheduler instance with a given configuration, callback factories and Daos.
-func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao) *Scheduler {
-	initCassandra(conf)
+func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, createSchema bool) *Scheduler {
+	initCassandra(conf, createSchema)
 	initCallbackRegistry(callbackFactories)
 	monitoring := initMonitoring(conf)
 	retrievers := initRetrievers(conf, clusterDao, scheduleDao, monitoring)

@@ -8,6 +8,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1-0.20200912192056-d07530f46e1e
+	github.com/imdario/mergo v0.3.12
 	github.com/jinzhu/configor v0.0.0-20171024081003-6ecfe629230f
 	github.com/newrelic/go-agent v2.16.3+incompatible
 	github.com/orcaman/concurrent-map v1.0.0
@@ -30,7 +31,6 @@ require (
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

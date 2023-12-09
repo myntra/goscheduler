@@ -28,7 +28,8 @@ type Task struct {
 }
 
 var (
-	HttpTaskQueue chan ScheduleWrapper
+	OldHttpTaskQueue chan ScheduleWrapper
+	HttpTaskQueue    chan ScheduleWrapper
 	// Channel sends the tasks to convert a recurring schedule to one time schedules
 	CronTaskQueue chan CreateScheduleTask
 	// Channel aggregates the schedules and forward to status update
@@ -40,6 +41,7 @@ var (
 )
 
 func (t *Task) InitTaskQueues() {
+	OldHttpTaskQueue = make(chan ScheduleWrapper)
 	HttpTaskQueue = make(chan ScheduleWrapper)
 	CronTaskQueue = make(chan CreateScheduleTask)
 	//making the channel buffered in order to regulate the flow in a better way

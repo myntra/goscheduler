@@ -23,6 +23,7 @@ const (
 	ErrorConfig                              = "Error while loading config"
 	AppName                                  = "goscheduler"
 	HttpCallback                             = "HttpCallback"
+	AirbusCallback                           = "AirbusCallback"
 	Start                                    = "Start"
 	Stop                                     = "Stop"
 	Running                                  = "Running"

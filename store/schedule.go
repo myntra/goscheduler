@@ -27,7 +27,6 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/conf"
-	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/cron"
 	"github.com/myntra/goscheduler/util"
 	"time"
@@ -125,7 +124,7 @@ func (s Schedule) GetCallbackDetails() string {
 }
 
 func (s *Schedule) CreateScheduleFromCassandraMap(m map[string]interface{}) error {
-	glog.V(constants.INFO).Infof("Map: %+v", m)
+	glog.Infof("Map: %+v", m)
 	if len(m) == 0 {
 		return nil
 	}
@@ -284,35 +283,54 @@ func (s *Schedule) UpdateReconciliationHistory(status Status, errMsg string) {
 }
 
 func (s *Schedule) UnmarshalJSON(data []byte) error {
+	// Define an auxiliary type to prevent recursive calls to UnmarshalJSON
 	type Alias Schedule
 	aux := &struct {
 		*Alias
+		HttpCallbackData   *HTTPCallback   `json:"httpCallback,omitempty"`
+		AirbusCallbackData *AirbusCallback `json:"airbusCallback,omitempty"`
 	}{
 		Alias: (*Alias)(s),
 	}
+
+	// Unmarshal into the auxiliary struct
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 
-	var callbackData struct {
-		Type string `json:"type"`
+	// Check if CallbackRaw is present and use specific logic
+	if len(s.CallbackRaw) > 0 {
+		glog.Infof("Schedule Data: %+v", data)
+
+		var callbackData struct {
+			Type string `json:"type"`
+		}
+
+		if err := json.Unmarshal(s.CallbackRaw, &callbackData); err != nil {
+			return err
+		}
+
+		factoryFunc, ok := Registry[callbackData.Type]
+		if !ok {
+			return fmt.Errorf("unknown callback type: %s", callbackData.Type)
+		}
+
+		callback := factoryFunc()
+		if err := json.Unmarshal(s.CallbackRaw, callback); err != nil {
+			return err
+		}
+
+		s.Callback = callback
+	} else {
+		glog.Infof("Schedule Data: %+v", data)
+		// Use the HttpCallbackData or AirbusCallbackData
+		if aux.HttpCallbackData != nil {
+			s.HttpCallback = *aux.HttpCallbackData
+		} else if aux.AirbusCallbackData != nil {
+			s.AirbusCallback = *aux.AirbusCallbackData
+		}
 	}
 
-	if err := json.Unmarshal(s.CallbackRaw, &callbackData); err != nil {
-		return err
-	}
-
-	factoryFunc, ok := Registry[callbackData.Type]
-	if !ok {
-		return fmt.Errorf("unknown callback type: %s", callbackData.Type)
-	}
-
-	callback := factoryFunc()
-	if err := json.Unmarshal(s.CallbackRaw, callback); err != nil {
-		return err
-	}
-
-	s.Callback = callback
 	return nil
 }
 

@@ -440,8 +440,8 @@ func NewConfig(opts ...Option) *Configuration {
 	return &config
 }
 
-// parseFlags parses command line flags and returns the values.
-func parseFlags() (string, string, string) {
+// ParseFlags parses command line flags and returns the values.
+func ParseFlags() (string, string, string) {
 	var port string
 	var host string
 	var confFile string
@@ -467,17 +467,14 @@ func getHttpPortFromEnv() string {
 // InitConfig initializes the configuration by setting default values,
 // parsing command line flags, and loading the configuration from the
 // specified file. It returns a pointer to a Configuration struct.
-func InitConfig() *Configuration {
-	confFile, port, host := parseFlags()
+func InitConfig(confFile, port, address string) *Configuration {
 	httpPort := getHttpPortFromEnv()
-	_ = flag.Set("stderrthreshold", "INFO")
-
 	config := LoadConfig(confFile)
 
 	//override values if provided as arguments
 	config.HttpPort = httpPort
 	config.Cluster.TChannelPort = port
-	config.Cluster.Address = GetAddress(host, port)
+	config.Cluster.Address = address
 
 	return config
 }
