@@ -139,6 +139,19 @@ func (s *Schedule) CreateScheduleFromCassandraMap(m map[string]interface{}) erro
 	}
 	s.Callback = callback
 
+	// Deprecated
+	if httpCallback, ok := s.Callback.(*HTTPCallback); ok {
+		s.HttpCallback = HTTPCallback{
+			Url:     httpCallback.Url,
+			Headers: httpCallback.Headers,
+		}
+	} else if airbusCallback, ok := s.Callback.(*AirbusCallback); ok {
+		s.AirbusCallback = AirbusCallback{
+			EventName: airbusCallback.EventName,
+			Headers:   httpCallback.Headers,
+		}
+	}
+
 	// Get callbackRaw from map
 	raw, err := convertCallbackToRaw(s)
 	if err != nil {
@@ -214,8 +227,12 @@ func (s Schedule) CloneAsOneTime(at time.Time) Schedule {
 			Url:     httpCallback.Url,
 			Headers: httpCallback.Headers,
 		}
+	} else if airbusCallback, ok := s.Callback.(*AirbusCallback); ok {
+		clone.AirbusCallback = AirbusCallback{
+			EventName: airbusCallback.EventName,
+			Headers:   airbusCallback.Headers,
+		}
 	}
-	//TODO: Add airbus implementation here
 	clone.Payload = s.Payload
 	clone.ParentScheduleId = s.ScheduleId
 

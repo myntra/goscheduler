@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/constants"
 	"net/url"
 )
@@ -47,9 +46,7 @@ func (h *HTTPCallback) UnmarshalJSON(data []byte) error {
 }
 
 func (h *HTTPCallback) Invoke(wrapper ScheduleWrapper) error {
-	glog.Infof("Pushing to OldHttpTaskQueue!!!!!!!!!!!!!!!!!!!!")
 	OldHttpTaskQueue <- wrapper
-	glog.Infof("Pushed to OldHttpTaskQueue!!!!!!!!!!!!!!!!!!!!")
 	return nil
 }
 

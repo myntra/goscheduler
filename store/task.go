@@ -30,6 +30,7 @@ type Task struct {
 var (
 	OldHttpTaskQueue chan ScheduleWrapper
 	HttpTaskQueue    chan ScheduleWrapper
+	AirbusTaskQueue  chan ScheduleWrapper
 	// Channel sends the tasks to convert a recurring schedule to one time schedules
 	CronTaskQueue chan CreateScheduleTask
 	// Channel aggregates the schedules and forward to status update
