@@ -209,6 +209,13 @@ func (s Schedule) CloneAsOneTime(at time.Time) Schedule {
 	clone.ScheduleTime = at.Unix()
 	clone.AppId = s.AppId
 	clone.Callback = s.Callback
+	if httpCallback, ok := s.Callback.(*HTTPCallback); ok {
+		clone.HttpCallback = HTTPCallback{
+			Url:     httpCallback.Url,
+			Headers: httpCallback.Headers,
+		}
+	}
+	//TODO: Add airbus implementation here
 	clone.Payload = s.Payload
 	clone.ParentScheduleId = s.ScheduleId
 
