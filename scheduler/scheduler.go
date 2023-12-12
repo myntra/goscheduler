@@ -28,7 +28,7 @@ import (
 	"github.com/myntra/goscheduler/dao"
 	m "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/poller"
-	"github.com/myntra/goscheduler/retrievers"
+	r "github.com/myntra/goscheduler/retrievers"
 	"github.com/myntra/goscheduler/server"
 	s "github.com/myntra/goscheduler/service"
 	st "github.com/myntra/goscheduler/store"
@@ -42,6 +42,7 @@ type Scheduler struct {
 	Supervisor *cluster.Supervisor
 	Service    *s.Service
 	Connectors *conn.Connector
+	Retrievers r.Retrievers
 	Monitoring *m.Monitoring
 }
 
@@ -60,12 +61,12 @@ func initDAOs(conf *c.Configuration, monitoring *m.Monitoring) (dao.ClusterDao, 
 }
 
 // initRetrievers initializes the retrievers for the schedules and clusters using the configuration provided.
-func initRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *m.Monitoring) retrievers.Retrievers {
-	return retrievers.InitRetrievers(&conf.CronConfig, clusterDao, scheduleDao, monitoring)
+func initRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *m.Monitoring) r.Retrievers {
+	return r.InitRetrievers(&conf.CronConfig, clusterDao, scheduleDao, monitoring)
 }
 
 // initSupervisor creates a new Supervisor object that manages the cluster of nodes running the scheduler.
-func initSupervisor(conf *c.Configuration, retrievers retrievers.Retrievers, clusterDao dao.ClusterDao, monitoring *m.Monitoring) *cluster.Supervisor {
+func initSupervisor(conf *c.Configuration, retrievers r.Retrievers, clusterDao dao.ClusterDao, monitoring *m.Monitoring) *cluster.Supervisor {
 	supervisor := cluster.NewSupervisor(
 		poller.NewPollerFactory(retrievers, conf.Poller, monitoring),
 		clusterDao,
@@ -138,6 +139,7 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 		Supervisor: supervisor,
 		Service:    service,
 		Connectors: connectors,
+		Retrievers: retrievers,
 		Monitoring: monitoring,
 	}
 }
@@ -159,6 +161,7 @@ func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory
 		Supervisor: supervisor,
 		Service:    service,
 		Connectors: connectors,
+		Retrievers: retrievers,
 		Monitoring: monitoring,
 	}
 }

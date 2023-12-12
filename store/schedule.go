@@ -148,7 +148,7 @@ func (s *Schedule) CreateScheduleFromCassandraMap(m map[string]interface{}) erro
 	} else if airbusCallback, ok := s.Callback.(*AirbusCallback); ok {
 		s.AirbusCallback = AirbusCallback{
 			EventName: airbusCallback.EventName,
-			Headers:   httpCallback.Headers,
+			Headers:   airbusCallback.Headers,
 		}
 	}
 
