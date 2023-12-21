@@ -33,20 +33,20 @@ type Connector struct {
 	ClusterDao  dao.ClusterDao
 	ScheduleDao dao.ScheduleDao
 	HttpClient  *http.Client
-	Monitoring  *monitoring.Monitoring
+	Monitor     monitoring.Monitor
 }
 
 // NewConnector creates a new Connector instance with the given configuration, DAOs, and monitoring.
-func NewConnector(config *conf.Configuration, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitoring *monitoring.Monitoring) *Connector {
+func NewConnector(config *conf.Configuration, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitor monitoring.Monitor) *Connector {
 	client := &http.Client{
-		Timeout:       config.HttpConnector.TimeoutMillis * time.Millisecond,
+		Timeout: config.HttpConnector.TimeoutMillis * time.Millisecond,
 	}
 	return &Connector{
 		Config:      config,
 		ClusterDao:  clusterDao,
 		ScheduleDao: scheduleDAO,
 		HttpClient:  client,
-		Monitoring:  monitoring,
+		Monitor:     monitor,
 	}
 }
 

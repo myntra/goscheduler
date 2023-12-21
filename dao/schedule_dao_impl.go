@@ -31,81 +31,30 @@ import (
 	"github.com/myntra/goscheduler/db_wrapper"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
-	"gopkg.in/alexcesaro/statsd.v2"
 	"runtime/debug"
-	"strconv"
 	"time"
 )
 
 const BatchSize = 50
 
 type ScheduleDaoImpl struct {
-	Session    db_wrapper.SessionInterface
-	Conf       *conf.Configuration
-	Monitoring *p.Monitoring
+	Session db_wrapper.SessionInterface
+	Conf    *conf.Configuration
+	Monitor p.Monitor
 }
 
 // Profile execution of do
-func (s *ScheduleDaoImpl) profile(do func() (store.Schedule, error), bucket string) (store.Schedule, error) {
-	var timing statsd.Timing
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing = s.Monitoring.StatsDClient.NewTiming()
-	}
+func (s *ScheduleDaoImpl) profile(do func() (store.Schedule, error), metric, appId string) (store.Schedule, error) {
+	startTime := time.Now()
 
 	result, err := do()
 
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		s.Monitoring.StatsDClient.Increment(bucket)
+	if s.Monitor != nil {
+		duration := time.Since(startTime)
+		s.Monitor.RecordTiming(metric, map[string]string{"appId": appId}, duration)
 	}
 
 	return result, err
-}
-
-// prefix for getBulkStatus update
-func (s *ScheduleDaoImpl) getEnrichSchedulePrefix(appId string, partitionId int) string {
-	return "scheduleRetriever" + constants.DOT + "enrichSchedule" + constants.DOT + appId + constants.DOT + strconv.Itoa(partitionId)
-}
-
-// Record enrich schedule in bulk success
-func (s *ScheduleDaoImpl) recordEnrichSchedulesSuccess(prefix string) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record enrich schedule in bulk failure
-func (s *ScheduleDaoImpl) recordEnrichScheduleFailure(prefix string) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record statsD metrics for the execution of do()
-// log error messages in case of failures
-func (s *ScheduleDaoImpl) recordAndLog(do func() ([]store.Schedule, error), bucket string) ([]store.Schedule, error) {
-	var timing statsd.Timing
-
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing = s.Monitoring.StatsDClient.NewTiming()
-	}
-
-	schedules, err := do()
-
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-
-	if err != nil {
-		s.recordEnrichScheduleFailure(bucket)
-		glog.Errorf("Schedule enrichment failed for bucket: %s with error %s", bucket, err.Error())
-	} else {
-		s.recordEnrichSchedulesSuccess(bucket)
-	}
-	return schedules, err
 }
 
 type Range struct {
@@ -115,16 +64,16 @@ type Range struct {
 	EndTime time.Time
 }
 
-func GetScheduleDaoImpl(conf *conf.Configuration, monitoring *p.Monitoring) *ScheduleDaoImpl {
+func GetScheduleDaoImpl(conf *conf.Configuration, monitor p.Monitor) *ScheduleDaoImpl {
 	session, err := cassandra.GetSessionInterface(conf.ScheduleDB.DBConfig, conf.ScheduleDB.ScheduleKeySpace)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", conf.ScheduleDB.DBConfig, err.Error()))
 		panic(err)
 	}
 	return &ScheduleDaoImpl{
-		Session:    session,
-		Conf:       conf,
-		Monitoring: monitoring,
+		Session: session,
+		Conf:    conf,
+		Monitor: monitor,
 	}
 }
 
@@ -207,15 +156,13 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule, app sto
 // Throws error if the writing to the schedule fails.
 func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule, app store.App) (store.Schedule, error) {
 	if schedule.IsRecurring() {
-		bucket := constants.CassandraInsert + constants.DOT + constants.CreateRecurringSchedule
 		return s.profile(func() (store.Schedule, error) {
 			return s.createRecurringSchedule(schedule)
-		}, bucket)
+		}, constants.CreateRecurringSchedule, schedule.AppId)
 	} else {
-		bucket := constants.CassandraInsert + constants.DOT + constants.CreateSchedule
 		return s.profile(func() (store.Schedule, error) {
 			return s.createOneTimeSchedule(schedule, app)
-		}, bucket)
+		}, constants.CreateOneTimeSchedule, schedule.AppId)
 	}
 }
 
@@ -1118,7 +1065,6 @@ func (s *ScheduleDaoImpl) GetCronSchedulesByApp(appId string, status store.Statu
 func (s *ScheduleDaoImpl) BulkAction(app store.App, partitionId int, scheduleTimeGroup time.Time, status []store.Status, actionType store.ActionType) error {
 	defer func() {
 		if r := recover(); r != nil {
-			s.Monitoring.StatsDClient.Increment(constants.Panic + constants.DOT + string(actionType))
 			glog.Errorf("Recovered in %s from error %+v with stacktrace %s", string(actionType), r, string(debug.Stack()))
 		}
 	}()
@@ -1195,9 +1141,10 @@ func (s *ScheduleDaoImpl) actionIfRequired(app store.App, schedules []store.Sche
 		return nil
 	}
 
-	enrichedSchedules, err := s.recordAndLog(
-		func() ([]store.Schedule, error) { return s.OptimizedEnrichSchedule(schedules) },
-		s.getEnrichSchedulePrefix(schedules[0].AppId, schedules[0].PartitionId))
+	enrichedSchedules, err := s.OptimizedEnrichSchedule(schedules)
+	if err != nil {
+		glog.Errorf("Schedule enrichment failed for appId: %s, partitionId: %d with error %s", schedules[0].AppId, schedules[0].PartitionId, err.Error())
+	}
 
 	// we already logged the error, so no need to log it
 	if err != nil {

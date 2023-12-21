@@ -39,14 +39,13 @@ func setupMocks() *Service {
 			Cluster: conf.ClusterConfig{
 				Address: "127.0.0.1:9091",
 			},
-			CronConfig:conf.CronConfig{
-				App:      "Athena",
-
+			CronConfig: conf.CronConfig{
+				App: "Athena",
 			},
 		},
-		supervisor:  new(cluster.DummySupervisor),
-		clusterDao:  new(dao.DummyClusterDaoImpl),
-		scheduleDao: new(dao.DummyScheduleDaoImpl),
+		Supervisor:  new(cluster.DummySupervisor),
+		ClusterDao:  new(dao.DummyClusterDaoImpl),
+		ScheduleDao: new(dao.DummyScheduleDaoImpl),
 	}
 }
 

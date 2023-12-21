@@ -29,22 +29,6 @@ import (
 	"net/http"
 )
 
-// Record get apps success in StatsD
-func (s *Service) recordGetAppsSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.GetApps + constants.DOT + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record get apps failure in StatsD
-func (s *Service) recordGetAppsFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.GetApps + constants.DOT + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func parseAppQueryParams(r *http.Request) string {
 	query := r.URL.Query()
 	return query.Get("app_id")
@@ -55,12 +39,12 @@ func (s *Service) GetApps(w http.ResponseWriter, r *http.Request) {
 
 	apps, err := s.FetchApps(appId)
 	if err != nil {
-		s.recordGetAppsFail()
+		s.recordRequestStatus(constants.GetApps, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordGetAppsSuccess()
+	s.recordRequestStatus(constants.GetApps, constants.Success)
 
 	status := Status{
 		StatusCode:    constants.SuccessCode200,

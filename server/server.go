@@ -23,8 +23,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/service"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Server struct {
@@ -51,19 +53,15 @@ func responseMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) monitoringMiddleware(operationName string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.service.Monitoring != nil && s.service.Monitoring.StatsDClient != nil {
-			s.service.Monitoring.StatsDClient.Increment(operationName)
-			timing := s.service.Monitoring.StatsDClient.NewTiming()
-			defer timing.Send(operationName)
-		}
-
-		if s.service.Monitoring != nil && s.service.Monitoring.NewrelicApp != nil {
-			txn := (*s.service.Monitoring.NewrelicApp).StartTransaction(operationName, w, r)
-			defer txn.End()
-		}
-
+		startTime := time.Now()
 		// Call the next middleware or route handler in the chain
 		next(w, r)
+
+		if s.service.Monitor != nil {
+			duration := time.Since(startTime)
+			s.service.Monitor.IncCounter(constants.HttpRequestsTotal, map[string]string{"request": operationName}, 1)
+			s.service.Monitor.RecordTiming(constants.HttpRequestsDuration, map[string]string{"request": operationName}, duration)
+		}
 	}
 }
 
@@ -137,6 +135,8 @@ func (s *Server) registerHTTPHandlers() {
 			s.service.GetCronSchedules(w, r)
 		}),
 	).Methods("GET")
+
+	s.router.Handle("/goscheduler/metrics", promhttp.Handler())
 
 	log.Fatal(http.ListenAndServe(":"+s.port, s.router))
 }

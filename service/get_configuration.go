@@ -12,20 +12,6 @@ import (
 	"net/http"
 )
 
-func (s *Service) recordGetConfigurationSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.GetConfiguration + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordGetConfigurationFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.GetConfiguration + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
 func (s *Service) GetConfiguration(w http.ResponseWriter, r *http.Request) {
 	var configuration sch.Configuration
 
@@ -37,20 +23,20 @@ func (s *Service) GetConfiguration(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == gocql.ErrNotFound:
 		er.Handle(w, r, er.NewError(er.InvalidAppId, errors.New(fmt.Sprintf("app id %s is not registered", appId))))
-		s.recordGetConfigurationFail()
+		s.recordRequestStatus(constants.GetConfiguration, constants.Fail)
 
 	case err != nil:
 		er.Handle(w, r, er.NewError(er.DataFetchFailure, err))
-		s.recordGetConfigurationFail()
+		s.recordRequestStatus(constants.GetConfiguration, constants.Fail)
 
 	default:
 		if configuration, err = s.ClusterDao.GetConfiguration(app.AppId); err != nil {
 			er.Handle(w, r, er.NewError(er.DataNotFound, err))
-			s.recordGetConfigurationFail()
+			s.recordRequestStatus(constants.GetConfiguration, constants.Fail)
 			return
 		}
 
-		s.recordGetConfigurationSuccess()
+		s.recordRequestStatus(constants.GetConfiguration, constants.Success)
 		status := Status{
 			StatusCode:    constants.SuccessCode201,
 			StatusMessage: constants.Success,

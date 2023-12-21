@@ -35,20 +35,6 @@ import (
 
 const MaxBulkActionPeriodInDays = 7
 
-func (s *Service) recordPushBulkActionSuccess(appId string, actionType store.ActionType) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := appId + constants.DOT + string(actionType) + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-func (s *Service) recordPushBulkActionFail(appId string, actionType store.ActionType) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := appId + constants.DOT + string(actionType) + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func pushBulkActionQueries(app store.App, timeRange dao.Range, status store.Status, actionType store.ActionType) error {
 	for partition := 0; partition < int(app.Partitions); partition++ {
 		for _time := timeRange.StartTime; _time.Before(timeRange.EndTime); _time = _time.Add(time.Minute * 1) {
@@ -74,19 +60,19 @@ func (s *Service) BulkAction(w http.ResponseWriter, r *http.Request) {
 
 	_, status, timeRange, _, _, err := parse(r)
 	if err != nil {
-		s.recordPushBulkActionFail(appId, action)
+		s.recordRequestAppStatus(string(action), appId, constants.Fail)
 		er.Handle(w, r, er.NewError(er.InvalidDataCode, err))
 		return
 	}
 
 	err = s.ExecuteBulkAction(appId, action, status, timeRange)
 	if err != nil {
-		s.recordPushBulkActionFail(appId, action)
+		s.recordRequestAppStatus(string(action), appId, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordPushBulkActionSuccess(appId, action)
+	s.recordRequestAppStatus(string(action), appId, constants.Success)
 	_ = json.NewEncoder(w).Encode(
 		BulkActionResponse{
 			Status: Status{

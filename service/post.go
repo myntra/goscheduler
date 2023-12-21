@@ -33,35 +33,19 @@ import (
 	"strings"
 )
 
-// Record create schedule success success in StatsD
-func (s *Service) recordCreateSuccess(schedule sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule, Create) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record create schedule failure in StatsD
-func (s *Service) recordCreateFail(schedule sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule, Create) + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 	var input sch.Schedule
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		s.recordCreateFail(sch.Schedule{})
+		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(sch.Schedule{}), constants.Fail)
 		er.Handle(w, r, er.NewError(er.UnmarshalErrorCode, err))
 		return
 	}
 
 	err = json.Unmarshal(b, &input)
 	if err != nil {
-		s.recordCreateFail(sch.Schedule{})
+		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(sch.Schedule{}), constants.Fail)
 		er.Handle(w, r, er.NewError(er.UnmarshalErrorCode, err))
 		return
 	}
@@ -71,10 +55,10 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 
 	schedule, err := s.CreateSchedule(input)
 	if err != nil {
-		s.recordCreateFail(schedule)
+		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(sch.Schedule{}), constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 	} else {
-		s.recordCreateSuccess(schedule)
+		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(schedule), constants.Success)
 		glog.V(constants.INFO).Infof("Schedule created successfully. Schedule id is :  %s ", schedule.ScheduleId)
 		status := Status{StatusCode: constants.SuccessCode201, StatusMessage: constants.Success, StatusType: constants.Success, TotalCount: 1}
 		_ = json.NewEncoder(w).Encode(CreateScheduleResponse{Status: status, Data: CreateScheduleData{Schedule: schedule}})
@@ -82,7 +66,7 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// createSchedule creates a new schedule
+// CreateSchedule createSchedule creates a new schedule
 func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 	app, err := s.getApp(input.AppId)
 	if err != nil {

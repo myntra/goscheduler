@@ -72,7 +72,7 @@ type Supervisor struct {
 	entityFactory e.EntityFactory
 	clusterDao    dao.ClusterDao
 	scheduleDao   dao.ScheduleDao
-	monitoring    *p.Monitoring
+	monitor       p.Monitor
 }
 
 type options struct {
@@ -170,7 +170,7 @@ func WithReconciliationOffset(reconciliationOffset int) Option {
 	}
 }
 
-func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, monitoring *p.Monitoring, opt ...Option) *Supervisor {
+func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, monitor p.Monitor, opt ...Option) *Supervisor {
 	opts := defaultOptions
 	for _, o := range opt {
 		o(&opts)
@@ -184,7 +184,7 @@ func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, mon
 		entities:      cmap.New(),
 		entityFactory: entityFactory,
 		clusterDao:    clusterDao,
-		monitoring:    monitoring,
+		monitor:       monitor,
 	}
 
 	return supervisor
@@ -775,12 +775,6 @@ func (s *Supervisor) fetchAndRetrySchedule(app store.App, partitionId int, timeO
 	}
 }
 
-func (s *Supervisor) closeStatsd() {
-	if s.monitoring != nil && s.monitoring.StatsDClient != nil {
-		s.monitoring.StatsDClient.Close()
-	}
-}
-
 // WaitForTermination waits for OS signals to terminate
 // Stops the node, closes stastDClient before exiting the program
 func (s *Supervisor) WaitForTermination() {
@@ -793,7 +787,6 @@ func (s *Supervisor) WaitForTermination() {
 		glog.Flush()
 		s.StopNode()
 		s.CloseRingPop()
-		s.closeStatsd()
 		exit <- true
 	}()
 

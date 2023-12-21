@@ -22,34 +22,10 @@ package connectors
 import (
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
-	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/cron"
 	s "github.com/myntra/goscheduler/store"
-	"strconv"
 	"time"
 )
-
-func prefix(schedule s.Schedule) string {
-	return "connectors" + constants.DOT + "cron" + constants.DOT +
-		schedule.AppId + constants.DOT + strconv.Itoa(schedule.PartitionId)
-}
-
-// TODO: Can we rename these functions?
-// Record a one time schedule creation success in StatsD
-func (c *Connector) recordSuccess(schedule s.Schedule) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule) + constants.DOT + constants.Success
-		c.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record a one time schedule creation failure in StatsD
-func (c *Connector) recordFailure(schedule s.Schedule) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule) + constants.DOT + constants.Fail
-		c.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
 
 // Creates one time schedules for a recurring schedule.
 // Listens for a create task event on the channel. And creates the schedule if the cron expression matches
@@ -65,24 +41,18 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 
 		if !parent.IsRecurring() {
 			glog.Errorf("Schedule %v is not a cron", parent)
-			c.recordFailure(parent)
-
 			continue
 		}
 
 		var _cron cron.Expression
 		if _cron, errs = cron.Parse(parent.CronExpression); len(errs) != 0 {
 			glog.Errorf("Parsing cron expression for schedule %s failed with errors %v", parent.ScheduleId, errs)
-			c.recordFailure(parent)
-
 			continue
 		}
 
 		var app s.App
 		if app, err = c.ClusterDao.GetApp(parent.AppId); err != nil || !app.Active {
 			glog.Errorf("App %s is not active", parent.AppId)
-			c.recordFailure(parent)
-
 			continue
 		}
 
@@ -94,8 +64,6 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 			}
 		default:
 			glog.Errorf("Error getting future runs for %s", parent.ScheduleId)
-			c.recordFailure(parent)
-
 			continue
 		}
 
@@ -109,8 +77,6 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 					glog.Errorf(
 						"Validation failed for one time schedule %v of cron %s with errors %v",
 						clone, parent.ScheduleId, errs)
-					c.recordFailure(parent)
-
 					continue
 				}
 
@@ -118,12 +84,8 @@ func (c *Connector) createSchedules(tasks <-chan s.CreateScheduleTask) {
 					glog.Errorf(
 						"Creation failed for one time schedule %v of cron %s with errors %s",
 						clone, parent.ScheduleId, err.Error())
-					c.recordFailure(parent)
-
 					continue
 				}
-
-				c.recordSuccess(parent)
 			}
 		}
 	}

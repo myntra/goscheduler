@@ -30,25 +30,6 @@ import (
 	"strings"
 )
 
-func (s *Service) recordGetCronAppSchedulesSuccess(schedules []sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		cronSchedule := sch.Schedule{}
-		if len(schedules) > 0 {
-			cronSchedule = schedules[0]
-		}
-
-		bucket := prefix(cronSchedule, GetCronSchedule) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-func (s *Service) recordGetCronAppSchedulesFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.GetCronSchedule + constants.DOT + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func parseCron(r *http.Request) (string, sch.Status, error) {
 	var appId string
 	var status sch.Status
@@ -65,12 +46,12 @@ func (s *Service) GetCronSchedules(w http.ResponseWriter, r *http.Request) {
 
 	cronSchedules, err := s.FetchCronSchedules(appId, status)
 	if err != nil {
-		s.recordGetCronAppSchedulesFail()
+		s.recordRequestAppStatus(constants.GetCronSchedule, appId, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordGetCronAppSchedulesSuccess(cronSchedules)
+	s.recordRequestAppStatus(constants.GetCronSchedule, appId, constants.Success)
 	_ = json.NewEncoder(w).Encode(
 		GetCronSchedulesResponse{
 			Status: Status{

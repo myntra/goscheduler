@@ -12,20 +12,6 @@ import (
 	"net/http"
 )
 
-func (s *Service) recordDeleteConfigurationSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.DeleteConfiguration + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordDeleteConfigurationFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.DeleteConfiguration + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
 func (s *Service) DeleteConfiguration(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var app sch.App
@@ -39,20 +25,20 @@ func (s *Service) DeleteConfiguration(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == gocql.ErrNotFound:
 		er.Handle(w, r, er.NewError(er.InvalidAppId, errors.New(fmt.Sprintf("app %+v is not registered", app))))
-		s.recordDeleteConfigurationFail()
+		s.recordRequestStatus(constants.DeleteConfiguration, constants.Fail)
 
 	case err != nil:
 		er.Handle(w, r, er.NewError(er.DataFetchFailure, err))
-		s.recordDeleteConfigurationFail()
+		s.recordRequestStatus(constants.DeleteConfiguration, constants.Fail)
 
 	default:
 		if config, err = s.ClusterDao.DeleteConfiguration(app.AppId); err != nil {
 			er.Handle(w, r, er.NewError(er.DataPersistenceFailure, err))
-			s.recordDeleteConfigurationFail()
+			s.recordRequestStatus(constants.DeleteConfiguration, constants.Fail)
 			return
 		}
 
-		s.recordDeleteConfigurationSuccess()
+		s.recordRequestStatus(constants.DeleteConfiguration, constants.Success)
 		status := Status{
 			StatusCode:    constants.SuccessCode201,
 			StatusMessage: constants.Success,

@@ -452,7 +452,7 @@ func ParseFlags() (string, string, string) {
 	flag.StringVar(&host, "h", "127.0.0.1", "goscheduler server host")
 	flag.Parse()
 
-	return confFile, port, host
+	return confFile, port, host + ":" + port
 }
 
 // getHttpPortFromEnv retrieves the HTTP port from the environment variable.

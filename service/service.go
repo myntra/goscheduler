@@ -22,6 +22,7 @@ package service
 import (
 	"github.com/myntra/goscheduler/cluster"
 	c "github.com/myntra/goscheduler/conf"
+	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/dao"
 	"github.com/myntra/goscheduler/monitoring"
 )
@@ -31,15 +32,27 @@ type Service struct {
 	Supervisor  cluster.SupervisorHandler
 	ClusterDao  dao.ClusterDao
 	ScheduleDao dao.ScheduleDao
-	Monitoring  *monitoring.Monitoring
+	Monitor     monitoring.Monitor
 }
 
-func NewService(config *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitoring *monitoring.Monitoring) *Service {
+func NewService(config *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitor monitoring.Monitor) *Service {
 	return &Service{
 		Config:      config,
 		Supervisor:  supervisor,
 		ClusterDao:  clusterDao,
 		ScheduleDao: scheduleDAO,
-		Monitoring:  monitoring,
+		Monitor:     monitor,
+	}
+}
+
+func (s *Service) recordRequestStatus(name, status string) {
+	if s.Monitor != nil {
+		s.Monitor.IncCounter(constants.RequestStatus, map[string]string{"request": name, "status": status}, 1)
+	}
+}
+
+func (s *Service) recordRequestAppStatus(name, app, status string) {
+	if s.Monitor != nil {
+		s.Monitor.IncCounter(constants.RequestAppStatus, map[string]string{"request": name, "appId": app, "status": status}, 1)
 	}
 }

@@ -67,9 +67,11 @@ type Schedule struct {
 	ParentScheduleId      gocql.UUID              `json:"-"`
 	ReconciliationHistory []ReconciliationHistory `json:"reconciliationHistory,omitempty"`
 	//Deprecated
-	Ttl            int            `json:"-"`
+	Ttl int `json:"-"`
+	//Deprecated
 	AirbusCallback AirbusCallback `json:"airbusCallback,omitempty"`
-	HttpCallback   HTTPCallback   `json:"httpCallback,omitempty"`
+	//Deprecated
+	HttpCallback HTTPCallback `json:"httpCallback,omitempty"`
 }
 
 type AirbusCallback struct {

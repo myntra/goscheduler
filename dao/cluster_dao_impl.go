@@ -42,10 +42,10 @@ type AppMap struct {
 }
 
 type ClusterDaoImplCassandra struct {
-	Session    db_wrapper.SessionInterface
-	AppMap     AppMap
-	Conf       *conf.Configuration
-	Monitoring *p.Monitoring
+	Session db_wrapper.SessionInterface
+	AppMap  AppMap
+	Conf    *conf.Configuration
+	Monitor p.Monitor
 }
 
 var (
@@ -69,7 +69,7 @@ var (
 )
 
 // TODO: Should we make it singleton?
-func GetClusterDaoImpl(conf *conf.Configuration, monitoring *p.Monitoring) *ClusterDaoImplCassandra {
+func GetClusterDaoImpl(conf *conf.Configuration, monitor p.Monitor) *ClusterDaoImplCassandra {
 	session, err := cassandra.GetSessionInterface(conf.ClusterDB.DBConfig, conf.ClusterDB.ClusterKeySpace)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", conf.ClusterDB.DBConfig, err.Error()))
@@ -82,7 +82,7 @@ func GetClusterDaoImpl(conf *conf.Configuration, monitoring *p.Monitoring) *Clus
 			lock: sync.RWMutex{},
 			m:    make(map[string]store.App),
 		},
-		Monitoring: monitoring,
+		Monitor: monitor,
 	}
 }
 
