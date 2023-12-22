@@ -136,7 +136,7 @@ func (s *Server) registerHTTPHandlers() {
 		}),
 	).Methods("GET")
 
-	s.router.Handle("/goscheduler/metrics", promhttp.Handler())
+	s.router.Handle("/metrics", promhttp.Handler())
 
 	log.Fatal(http.ListenAndServe(":"+s.port, s.router))
 }
