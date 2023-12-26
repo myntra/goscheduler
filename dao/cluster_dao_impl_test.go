@@ -318,7 +318,7 @@ func TestClusterDaoImplCassandra_InsertApp(t *testing.T) {
 	dao, m, mq, _, ctrl := setupClusterDaoMocks(t)
 	defer ctrl.Finish()
 
-	m.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(mq).AnyTimes()
+	m.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(mq).AnyTimes()
 	gomock.InOrder(
 		mq.EXPECT().Exec().Return(nil).Times(2),
 		mq.EXPECT().Exec().Return(errors.New("error inserting app")).Times(2),

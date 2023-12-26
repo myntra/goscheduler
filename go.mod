@@ -13,7 +13,7 @@ require (
 	github.com/newrelic/go-agent v2.16.3+incompatible
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/sirupsen/logrus v1.8.2-0.20210422133436-b50299cfaaa1
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.4
 	github.com/uber-common/bark v1.3.0
 	github.com/uber/ringpop-go v0.8.5
 	github.com/uber/tchannel-go v1.8.1

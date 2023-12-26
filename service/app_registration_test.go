@@ -42,6 +42,13 @@ func setupMocks() *Service {
 			CronConfig: conf.CronConfig{
 				App: "Athena",
 			},
+			AppLevelConfiguration: conf.AppLevelConfiguration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  2,
+				HttpTimeout:                  500,
+			},
 		},
 		Supervisor:  new(cluster.DummySupervisor),
 		ClusterDao:  new(dao.DummyClusterDaoImpl),

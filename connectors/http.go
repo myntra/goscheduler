@@ -207,7 +207,7 @@ func (c *Connector) retryPost(input store.Schedule, app store.App) (*http.Respon
 		attempts++
 		glog.Infof("POSTING SCHEDULE %s\nATTEMPT %d ", input.ScheduleId, attempts)
 		url := input.Callback.(*store.HttpCallback).Details.Url
-		glog.Infof("URL:>", url)
+		glog.Infof("URL: %s", url)
 
 		req, err := createRequest(input)
 		if err != nil {

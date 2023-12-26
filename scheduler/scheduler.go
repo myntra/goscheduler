@@ -144,7 +144,7 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	}
 }
 
-// NewScheduler creates a new Scheduler instance with a given configuration, callback factories and Daos.
+// NewScheduler creates a new Scheduler instance with a given params.
 func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, createSchema bool) *Scheduler {
 	initCassandra(conf, createSchema)
 	initCallbackRegistry(callbackFactories)
