@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Welcome to goscheduler [Myntra Scheduler Service].")
+	fmt.Println("Welcome to Goscheduler.")
 	//Load all the configs
 	confFile, port, host := conf.ParseFlags()
 	_ = flag.Set("stderrthreshold", "INFO")

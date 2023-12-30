@@ -101,14 +101,8 @@ func initService(conf *c.Configuration, supervisor cluster.SupervisorHandler, cl
 }
 
 // initServer starts an HTTP server using the provided configuration and Service object to handle requests.
-func initServer(conf *c.Configuration, router *mux.Router, service *s.Service) {
-	go server.NewHTTPServer(conf.HttpPort, router, service)
-}
-
-// startHTTPServer starts an HTTP server using the provided configuration and Service object to handle requests.
-func startHTTPServer(conf *c.Configuration, service *s.Service) {
-	router := mux.NewRouter().StrictSlash(true)
-	go server.NewHTTPServer(conf.HttpPort, router, service)
+func initServer(conf *c.Configuration, router *mux.Router, service *s.Service) *server.Server {
+	return server.NewHTTPServer(conf.HttpPort, router, service)
 }
 
 // initMonitoring initializes the monitoring component with the given configuration.
@@ -132,7 +126,8 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	connectors := initConnectors(conf, clusterDao, schedulerDao, monitor)
 	service := initService(conf, supervisor, clusterDao, schedulerDao, monitor)
 	router := mux.NewRouter().StrictSlash(true)
-	initServer(conf, router, service)
+	svr := initServer(conf, router, service)
+	go svr.StartServer()
 	return &Scheduler{
 		Config:     conf,
 		Router:     router,

@@ -35,13 +35,14 @@ type Server struct {
 	service *service.Service
 }
 
-func NewHTTPServer(port string, router *mux.Router, service *service.Service) {
+func NewHTTPServer(port string, router *mux.Router, service *service.Service) *Server {
 	server := &Server{
 		port:    port,
 		router:  router,
 		service: service,
 	}
 	server.registerHTTPHandlers()
+	return server
 }
 
 func responseMiddleware(next http.Handler) http.Handler {
@@ -137,6 +138,8 @@ func (s *Server) registerHTTPHandlers() {
 	).Methods("GET")
 
 	s.router.Handle("/metrics", promhttp.Handler())
+}
 
+func (s *Server) StartServer() {
 	log.Fatal(http.ListenAndServe(":"+s.port, s.router))
 }
