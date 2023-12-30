@@ -326,8 +326,6 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 
 	// Check if CallbackRaw is present and use specific logic
 	if len(s.CallbackRaw) > 0 {
-		glog.Infof("Schedule Data: %+v", data)
-
 		var callbackData struct {
 			Type string `json:"type"`
 		}
@@ -348,7 +346,6 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 
 		s.Callback = callback
 	} else {
-		glog.Infof("Schedule Data: %+v", data)
 		// Use the HttpCallbackData or AirbusCallbackData
 		if aux.HttpCallbackData != nil {
 			s.HttpCallback = *aux.HttpCallbackData
@@ -361,7 +358,6 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 }
 
 func (s *Schedule) ValidateSchedule(app App, conf conf.AppLevelConfiguration) []string {
-	glog.Infof("ValidateSchedule: %+v", s)
 	var errs []string
 
 	if errStr := validateField(s.AppId, "appId"); errStr != "" {

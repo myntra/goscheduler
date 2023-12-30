@@ -50,9 +50,6 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//To be removed
-	glog.Infof("Successfully unmarshalled schedule. Schedule: %+v", input)
-
 	schedule, err := s.CreateSchedule(input)
 	if err != nil {
 		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(sch.Schedule{}), constants.Fail)
