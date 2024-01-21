@@ -27,6 +27,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/conf"
+	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/cron"
 	"github.com/myntra/goscheduler/util"
 	"time"
@@ -126,7 +127,7 @@ func (s Schedule) GetCallbackDetails() string {
 }
 
 func (s *Schedule) CreateScheduleFromCassandraMap(m map[string]interface{}) error {
-	glog.Infof("Map: %+v", m)
+	glog.V(constants.INFO).Infof("Map: %+v", m)
 	if len(m) == 0 {
 		return nil
 	}
@@ -358,6 +359,7 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 }
 
 func (s *Schedule) ValidateSchedule(app App, conf conf.AppLevelConfiguration) []string {
+	glog.V(constants.INFO).Infof("ValidateSchedule: %+v", s)
 	var errs []string
 
 	if errStr := validateField(s.AppId, "appId"); errStr != "" {
