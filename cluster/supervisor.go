@@ -241,17 +241,14 @@ func (s *Supervisor) InitRingPop() {
 		panic(fmt.Sprintf("Ringpop bootstrap failed: %v", err))
 	}
 
-	glog.Info("Done!!!!!!!!!!!!!!")
 	if err := s.RegisterHandler(); err != nil {
 		panic(fmt.Sprintf("Error while registering handler %+v", err))
 	}
 
-	glog.Info("Done!!!!!!!!!!!!!!")
 	s.address, err = s.ringpop.WhoAmI()
 	if err != nil {
 		panic(fmt.Sprintf("Error initializing ringpop %v", err))
 	}
-	glog.Info("Done!!!!!!!!!!!!!!")
 }
 
 // Stop ringpop, TChannel gracefully
