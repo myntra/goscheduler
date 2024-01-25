@@ -10,8 +10,8 @@ require (
 	github.com/gorilla/mux v1.8.1-0.20200912192056-d07530f46e1e
 	github.com/imdario/mergo v0.3.12
 	github.com/jinzhu/configor v0.0.0-20171024081003-6ecfe629230f
-	github.com/newrelic/go-agent v2.16.3+incompatible
 	github.com/orcaman/concurrent-map v1.0.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/sirupsen/logrus v1.8.2-0.20210422133436-b50299cfaaa1
 	github.com/stretchr/testify v1.8.4
 	github.com/uber-common/bark v1.3.0
@@ -34,16 +34,16 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prashantv/protectmem v0.0.0-20171002184600-e20412882b3a // indirect
-	github.com/prometheus/client_golang v1.15.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/streadway/quantile v0.0.0-20220407130108-4246515d968d // indirect
 	github.com/uber-go/atomic v1.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect

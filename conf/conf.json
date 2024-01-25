@@ -109,9 +109,5 @@
     "HistorySize": 2,
     "BufferSize": 1000,
     "Routines": 10
-  },
-  "CallBackCounter": {
-    "Offset": 2,
-    "Window": 2
   }
 }
