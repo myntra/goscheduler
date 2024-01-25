@@ -22,11 +22,6 @@
     "DBConfig": {
       "Hosts": "cassandra",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -41,11 +36,6 @@
     "DBConfig": {
       "Hosts": "cassandra",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -71,7 +61,6 @@
       "Enabled": false
     }
   },
-
   "Poller": {
     "Interval": 60,
     "BufferSize": 1000,

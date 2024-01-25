@@ -22,11 +22,6 @@
     "DBConfig": {
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -41,11 +36,6 @@
     "DBConfig": {
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -89,9 +79,6 @@
     "Routines": 1,
     "BatchSize": 2,
     "FlushPeriod": 60
-  },
-  "VaultConfig": {
-    "Enabled": false
   },
   "Newrelic":{
     "LicenseKey" :"abcd",

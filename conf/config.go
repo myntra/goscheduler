@@ -58,7 +58,6 @@ type CassandraConfig struct {
 	Hosts          string            // Comma-separated list of Cassandra hosts
 	Consistency    gocql.Consistency // Consistency level for Cassandra operations
 	DataCenter     string            // Name of the data center to connect to
-	VaultConfig    VaultConfig       // Vault configuration for secure access
 	ConnectionPool ConnectionPool    // Connection pool configuration
 }
 
@@ -154,13 +153,6 @@ type StatusUpdateConfig struct {
 	Routines int // Number of workers updating status of schedules
 }
 
-// VaultConfig represents the configuration options for a Vault instance.
-type VaultConfig struct {
-	Enabled  bool   // Enable/disable fetching credentials from vault
-	Username string // Username of to connect to cassandra
-	Password string // Password to connect to cassandra
-}
-
 // NodeCrashReconcile represents the configuration options for reconciling node crashes.
 type NodeCrashReconcile struct {
 	NeedsReconcile  bool `json:"needsReconcile,omitempty"`
@@ -226,7 +218,6 @@ type Configuration struct {
 	CronConfig               CronConfig               // Configuration options for the cron scheduler
 	StatusUpdateConfig       StatusUpdateConfig       // Configuration options for status updates
 	AggregateSchedulesConfig AggregateSchedulesConfig // Configuration options for schedule aggregation
-	VaultConfig              VaultConfig              // Configuration options for Vault
 	NodeCrashReconcile       NodeCrashReconcile       // Configuration options for node crash reconciliation
 	BulkActionConfig         BulkActionConfig         // Configuration options for bulk actions
 	AppLevelConfiguration    AppLevelConfiguration    // Configuration options for app level configuration
@@ -295,11 +286,6 @@ var defaultConfig = Configuration{
 		Routines:    5,
 		BatchSize:   10,
 		FlushPeriod: 60,
-	},
-	VaultConfig: VaultConfig{
-		Enabled:  false,
-		Username: "cassandra",
-		Password: "cassandra",
 	},
 	NodeCrashReconcile: NodeCrashReconcile{
 		NeedsReconcile:  true,
@@ -399,12 +385,6 @@ func WithUpdateStatusConfig(statusUpdateConfig StatusUpdateConfig) Option {
 func WithAggregateSchedulesConfig(aggregateSchedulesConfig AggregateSchedulesConfig) Option {
 	return func(c *Configuration) {
 		c.AggregateSchedulesConfig = aggregateSchedulesConfig
-	}
-}
-
-func WithVaultConfig(vaultConfig VaultConfig) Option {
-	return func(c *Configuration) {
-		c.VaultConfig = vaultConfig
 	}
 }
 

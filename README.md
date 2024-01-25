@@ -140,11 +140,6 @@ To configure the `conf.json` use the following guidelines:
   "ClusterDB": {
     "DBConfig": {
       "Hosts": "127.0.0.1", # Cassandra database host IP
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra", # Cassandra database username if vaultConfig is enabled
-        "Password": "cassandra" # Cassandra database password if vaultConfig is enabled
-      }
       # ... other configurations ...
     }
     # ... other configurations ...
@@ -152,11 +147,6 @@ To configure the `conf.json` use the following guidelines:
   "ScheduleDB": {
     "DBConfig": {
       "Hosts": "127.0.0.1", # Cassandra database host IP
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra", # Cassandra database username if vaultConfig is enabled
-        "Password": "cassandra" # Cassandra database password if vaultConfig is enabled
-      }
       # ... other configurations ...
     }
     # ... other configurations ...
@@ -177,9 +167,7 @@ To configure the `conf.json` use the following guidelines:
 - `Cluster.TChannelPort`: Port for Ringpop TChannel communication, e.g., `"9091"`
 - `Cluster.BootStrapServers`: Ringpop cluster bootstrap nodes, e.g., `["127.0.0.1:9091", "127.0.0.1:9092"]`
 - `ClusterDB.DBConfig.Hosts`: Database host IP, e.g., `"127.0.0.1"`
-- `ClusterDB.DBConfig.VaultConfig`: If enabled, provide username and password e.g., `"Username": "cassandra"` and `"Password": "cassandra"` 
 - `ScheduleDB.DBConfig.Hosts`: Database host IP, e.g., `"127.0.0.1"`
-- `ScheduleDB.DBConfig.VaultConfig`: If enabled, provide username and password e.g., `"Username": "cassandra"` and `"Password": "cassandra"`
 - `MonitoringConfig.Statsd.Address`: Monitoring server IP and port, e.g., `"54.251.41.202:8125"`
 
 To configure the service during startup, you can use the following options:
