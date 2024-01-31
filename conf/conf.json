@@ -28,7 +28,7 @@
         "MaxNumConnections" : 4
       }
     },
-    "EntityHistorySize": 1000
+    "EntityHistorySize": 100
   },
   "ScheduleDB": {
     "ScheduleKeySpace": "schedule_management",

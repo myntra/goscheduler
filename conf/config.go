@@ -155,8 +155,8 @@ type StatusUpdateConfig struct {
 
 // NodeCrashReconcile represents the configuration options for reconciling node crashes.
 type NodeCrashReconcile struct {
-	NeedsReconcile  bool `json:"needsReconcile,omitempty"`
-	ReconcileOffset int  `json:"reconcileOffset,omitempty"`
+	NeedsReconcile  bool
+	ReconcileOffset int
 }
 
 // TODO: Need to take care of maintaining history for delete action
