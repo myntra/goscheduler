@@ -87,11 +87,11 @@ func initSupervisor(conf *c.Configuration, retrievers r.Retrievers, clusterDao d
 }
 
 // initConnectors creates the connector object used to communicate with the cluster nodes.
-func initConnectors(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor) *conn.Connector {
+func initConnectors(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, callbackWorkers bool) *conn.Connector {
 	t := &st.Task{Conf: conf}
 	t.InitTaskQueues()
 	connector := conn.NewConnector(conf, clusterDao, scheduleDao, monitor)
-	connector.InitConnectors()
+	connector.InitConnectors(callbackWorkers)
 	return connector
 }
 
@@ -123,7 +123,7 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	clusterDao, schedulerDao := initDAOs(conf, monitor)
 	retrievers := initRetrievers(conf, clusterDao, schedulerDao, monitor)
 	supervisor := initSupervisor(conf, retrievers, clusterDao, monitor)
-	connectors := initConnectors(conf, clusterDao, schedulerDao, monitor)
+	connectors := initConnectors(conf, clusterDao, schedulerDao, monitor, true)
 	service := initService(conf, supervisor, clusterDao, schedulerDao, monitor)
 	router := mux.NewRouter().StrictSlash(true)
 	svr := initServer(conf, router, service)
@@ -139,13 +139,14 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	}
 }
 
+//TODO: Reformat this constructor
 // NewScheduler creates a new Scheduler instance with a given params.
-func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, createSchema bool) *Scheduler {
+func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, createSchema bool, callbackWorkers bool) *Scheduler {
 	initCassandra(conf, createSchema)
 	initCallbackRegistry(callbackFactories)
 	retrievers := initRetrievers(conf, clusterDao, scheduleDao, monitor)
 	supervisor := initSupervisor(conf, retrievers, clusterDao, monitor)
-	connectors := initConnectors(conf, clusterDao, scheduleDao, monitor)
+	connectors := initConnectors(conf, clusterDao, scheduleDao, monitor, callbackWorkers)
 	service := initService(conf, supervisor, clusterDao, scheduleDao, monitor)
 	router := mux.NewRouter().StrictSlash(true)
 	initServer(conf, router, service)

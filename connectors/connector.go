@@ -51,8 +51,10 @@ func NewConnector(config *conf.Configuration, clusterDao dao.ClusterDao, schedul
 }
 
 // InitConnectors initializes all the worker pools managed by the Connector.
-func (c *Connector) InitConnectors() {
-	c.initHttpWorkers()
+func (c *Connector) InitConnectors(callbackWorkers bool) {
+	if callbackWorkers {
+		c.initHttpWorkers()
+	}
 	c.initAggregateWorkers()
 	c.initStatusUpdatePool()
 	c.initCronRetriever()
