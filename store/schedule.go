@@ -348,7 +348,7 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 		s.Callback = callback
 	} else {
 		// Use the HttpCallbackData or AirbusCallbackData
-		if aux.HttpCallbackData != nil {
+		if aux.HttpCallbackData != nil && aux.HttpCallbackData.Url != "" {
 			s.HttpCallback = *aux.HttpCallbackData
 		} else if aux.AirbusCallbackData != nil {
 			s.AirbusCallback = *aux.AirbusCallbackData
