@@ -82,8 +82,8 @@ type AirbusCallback struct {
 }
 
 type HTTPCallback struct {
-	Url     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
+	Url     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type ReconciliationHistory struct {
@@ -350,7 +350,7 @@ func (s *Schedule) UnmarshalJSON(data []byte) error {
 		// Use the HttpCallbackData or AirbusCallbackData
 		if aux.HttpCallbackData != nil {
 			s.HttpCallback = *aux.HttpCallbackData
-		} 
+		}
 		if aux.AirbusCallbackData != nil {
 			s.AirbusCallback = *aux.AirbusCallbackData
 		}
