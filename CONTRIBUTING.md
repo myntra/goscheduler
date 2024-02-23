@@ -28,7 +28,7 @@ Please make sure to discuss the changes you wish to make via issue, email, or an
 
 Here is a quick guide on how to contribute:
 
-1. Fork the repository and create your branch from `master`.
+1. Fork the repository and create your branch from `main`.
 2. If you've added code that should be tested, add tests.
 3. If you've changed APIs, update the documentation.
 4. Ensure the test suite passes.
