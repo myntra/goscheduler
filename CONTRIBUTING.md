@@ -4,7 +4,7 @@ First off, thank you for considering contributing to GoScheduler. We are committ
 
 ## Code of Conduct
 
-By participating, you are expected to uphold our [Code of Conduct](LINK_TO_CODE_OF_CONDUCT.md). Please make sure to read and understand it before engaging with the community.
+By participating, you are expected to uphold our [Code of Conduct](CODE-OF-CONDUCT.md). Please make sure to read and understand it before engaging with the community.
 
 ## Types of Contributions
 
@@ -35,13 +35,17 @@ Here is a quick guide on how to contribute:
 5. Make sure your code lints.
 6. Issue a pull request!
 
+## Review Process
+Our team reviews pull requests on a biweekly basis. Please be patient while waiting for a review. We appreciate your contributions and will do our best to provide feedback and merge contributions in a timely manner.
+
+
 ## Reporting Bugs & Requesting Features
 
 When you are creating a bug report or feature request, please include as many details as possible. Include details of your environment or the context in which you encountered the bug and steps to reproduce it. For feature requests, explain what you're trying to achieve, and how your proposed change would help you.
 
 ## Contact
 
-For any queries, you can reach out to us at [INSERT CONTACT INFO]. We look forward to your valuable suggestions and contributions!
+For any queries, you can reach out to us at [scm_ib_pe_iris@myntra.com]. We look forward to your valuable suggestions and contributions!
 
 ---
 
