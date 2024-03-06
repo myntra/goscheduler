@@ -473,7 +473,7 @@ In general, goscheduler can be used to schedule jobs with customizable callbacks
 More details on usecases can be found [here](Link to usecases)
 
 # APIs
-Detailed API documentation for goscheduler can be found [here](Link to github wiki for API documentation)
+Detailed API documentation for goscheduler can be found [here](https://github.com/myntra/goscheduler/wiki/APIs)
 
 # Benchmarks
 
