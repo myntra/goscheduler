@@ -45,7 +45,7 @@ If a community member engages in unacceptable behavior, the community organizers
 
 ## 6. Reporting Guidelines
 
-If you are subject to or witness unacceptable behavior, or have any other concerns, please notify a community organizer as soon as possible. [scm_ib_pe_iris@myntra.com].
+If you are subject to or witness unacceptable behavior, or have any other concerns, please notify a community organizer as soon as possible. [goscheduler-support@myntra.com].
 
 ## 7. Addressing Grievances
 
@@ -57,7 +57,7 @@ We expect all community participants (contributors, paid or otherwise; sponsors;
 
 ## 9. Contact info
 
-[scm_ib_pe_iris@myntra.com]
+[goscheduler-support@myntra.com]
 
 ## 10. License and attribution
 
