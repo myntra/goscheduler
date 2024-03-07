@@ -45,7 +45,7 @@ When you are creating a bug report or feature request, please include as many de
 
 ## Contact
 
-For any queries, you can reach out to us at [scm_ib_pe_iris@myntra.com]. We look forward to your valuable suggestions and contributions!
+For any queries, you can reach out to us at [goscheduler-support@myntra.com]. We look forward to your valuable suggestions and contributions!
 
 ---
 
