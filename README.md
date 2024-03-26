@@ -30,7 +30,7 @@
 10. [Contributors](#contributors)
  
 # Introduction
-GoScheduler, based on Myntra's Scheduler Service ([MySS](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c)), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs.
+GoScheduler, a distributed scheduling platform based on Myntra's Scheduler Service ([MySS](https://medium.com/myntra-engineering/myntra-scheduler-service-a0153a04526c)), is an open-source project designed to handle high throughput with low latency for scheduled job executions. GoScheduler is based on [Uber Ringpop](https://github.com/uber/ringpop-go) and offers capabilities such as multi-tenancy, per-minute granularity, horizontal scalability, fault tolerance, and other essential features. GoScheduler is written in Golang and utilizes Cassandra DB, allowing it to handle high levels of concurrent create/delete and callback throughputs.
 
 # Architecture
 ![Go Scheduler Architecture](./docs/images/go_scheduler_arch.png)
@@ -40,8 +40,8 @@ The Go Scheduler service consists of three major components - http service layer
 ## Tech Stack
 1. **Golang**: The service layer and poller layer of the Go Scheduler service are implemented using the Go programming language (Golang). Golang offers high throughput, low latency, and concurrency capabilities through its lightweight goroutines. It is well-suited for services that require efficient memory utilization and high concurrency.
 
-2. **Cassandra**: Cassandra is chosen as the datastore for the Go Scheduler service. It provides horizontal scalability, fault tolerance, and distributed data storage. Cassandra is widely used within Myntra and is known for its ability to handle high write throughput scenarios.
-
+2. **Cassandra**: Cassandra is chosen as the datastore for the Go Scheduler service. Cassandra offers horizontal scalability, fault tolerance, and distributed data handling capabilities. Its adoption by Myntra underscores its proficiency in managing scenarios with high write throughput, which is a critical requirement for GoScheduler, especially considering the major use case revolves around schedule creation.
+   
 ## Service Layer
 The service layer in the Scheduler service handles all REST traffic. It provides a web interface and exposes various endpoints for interacting with the service. Some of the important endpoints include:
 
