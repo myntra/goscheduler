@@ -343,7 +343,7 @@ Example response body:
 }
 ```
 
-More details on APIs and Customisable callbacks can be found [here](Link to API documentation)
+More details on APIs and Customisable callbacks can be found [here](https://github.com/myntra/goscheduler/wiki/APIs)
 
 ## Use as go module
 If the application is in Golang, Go Scheduler can be used as a module directly instead of deploying it as a separate process.
@@ -453,7 +453,7 @@ func main() {
 	fmt.Printf("Retrieved schedule: %+v\n", schedule)
  }
 ```
-More details on go module integration can be found [here](Link to go module integration)
+More details on go module integration can be found [here](https://github.com/myntra/goscheduler/wiki/Use-as-Go-module)
 
 
 # Use Cases
@@ -470,7 +470,7 @@ In general, goscheduler can be used to schedule jobs with customizable callbacks
 
 - **Payment Reconciliation:** Schedule reconciliation tasks for payment processing systems to ensure the consistency and accuracy of transactions. For example, if a payment gateway experiences issues or timeouts, the scheduler can schedule a reconciliation task to fetch transaction status from the bank and initiate necessary actions like refunds.
 
-More details on usecases can be found [here](Link to usecases)
+More details on usecases can be found [here](https://github.com/myntra/goscheduler/wiki/Use-Cases)
 
 # APIs
 Detailed API documentation for goscheduler can be found [here](https://github.com/myntra/goscheduler/wiki/APIs)
