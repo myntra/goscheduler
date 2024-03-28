@@ -27,15 +27,15 @@ import (
 )
 
 type ScheduleDao interface {
-	CreateSchedule(schedule s.Schedule) (s.Schedule, error)
+	CreateSchedule(schedule s.Schedule, app s.App) (s.Schedule, error)
 	GetRecurringScheduleByPartition(partitionId int) ([]s.Schedule, []error)
 	GetSchedule(uuid gocql.UUID) (s.Schedule, error)
 	GetEnrichedSchedule(uuid gocql.UUID) (s.Schedule, error)
 	EnrichSchedule(schedule *s.Schedule) error
 	DeleteSchedule(uuid gocql.UUID) (s.Schedule, error)
 	GetScheduleRuns(uuid gocql.UUID, size int64, when string, pageState []byte) ([]s.Schedule, []byte, error)
-	CreateRun(schedule s.Schedule) (s.Schedule, error)
-	UpdateStatus(schedules []s.Schedule) error
+	CreateRun(schedule s.Schedule, app s.App) (s.Schedule, error)
+	UpdateStatus(schedules []s.Schedule, app s.App) error
 	GetPaginatedSchedules(appId string, partitions int, timeRange Range, size int64, status s.Status, pageState []byte, continuationStartTime time.Time) ([]s.Schedule, []byte, time.Time, error)
 	GetSchedulesForEntity(appId string, partitionId int, timeBucket time.Time, pageState []byte) db_wrapper.IterInterface
 	OptimizedEnrichSchedule(schedules []s.Schedule) ([]s.Schedule, error)

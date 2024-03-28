@@ -23,6 +23,7 @@ import (
 	"errors"
 	"github.com/gocql/gocql"
 	"github.com/golang/mock/gomock"
+	conf2 "github.com/myntra/goscheduler/conf"
 	"testing"
 	"time"
 )
@@ -121,6 +122,25 @@ func TestCreateScheduleFromCassandraMap(t *testing.T) {
 
 func TestValidateSchedule(t *testing.T) {
 	t.Run("valid non-recurring schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+		a := App{
+			AppId:      "test-app-id",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
 		s := &Schedule{
 			AppId:          "test-app-id",
 			Payload:        "test-payload",
@@ -129,13 +149,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "*/5 * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) != 0 {
 			t.Fatalf("expected no errors, got %v", errs)
 		}
 	})
 
 	t.Run("invalid app in schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:          "",
 			Payload:        "test-payload",
@@ -144,13 +185,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "*/5 * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) == 0 {
 			t.Fatal("expected errors, got none")
 		}
 	})
 
 	t.Run("invalid payload in schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:          "appId",
 			Payload:        "",
@@ -159,13 +221,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "*/5 * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) == 0 {
 			t.Fatal("expected errors, got none")
 		}
 	})
 
 	t.Run("invalid schedule time in schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:        "appId",
 			Payload:      "{}",
@@ -173,13 +256,34 @@ func TestValidateSchedule(t *testing.T) {
 			ScheduleTime: time.Now().Unix() - 100,
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) == 0 {
 			t.Fatal("expected errors, got none")
 		}
 	})
 
 	t.Run("invalid cron expression in schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:          "appId",
 			Payload:        "{}",
@@ -188,13 +292,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "*/5 * * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) == 0 {
 			t.Fatal("expected errors, got none")
 		}
 	})
 
 	t.Run("invalid callback in schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:          "appId",
 			Payload:        "{}",
@@ -203,13 +328,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "*/5 * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) == 0 {
 			t.Fatal("expected errors, got none")
 		}
 	})
 
 	t.Run("valid recurring schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:          "test-app-id",
 			Payload:        "test-payload",
@@ -217,13 +363,34 @@ func TestValidateSchedule(t *testing.T) {
 			CronExpression: "* * * * *",
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) != 0 {
 			t.Fatalf("expected no errors, got %v", errs)
 		}
 	})
 
 	t.Run("valid one time schedule", func(t *testing.T) {
+		conf := conf2.AppLevelConfiguration{
+			FutureScheduleCreationPeriod: 7,
+			FiredScheduleRetentionPeriod: 1,
+			PayloadSize:                  1024,
+			HttpRetries:                  1,
+			HttpTimeout:                  1000,
+		}
+
+		a := App{
+			AppId:      "appId",
+			Partitions: 0,
+			Active:     false,
+			Configuration: Configuration{
+				FutureScheduleCreationPeriod: 7,
+				FiredScheduleRetentionPeriod: 1,
+				PayloadSize:                  1024,
+				HttpRetries:                  1,
+				HttpTimeout:                  1000,
+			},
+		}
+
 		s := &Schedule{
 			AppId:        "test-app-id",
 			Payload:      "test-payload",
@@ -231,7 +398,7 @@ func TestValidateSchedule(t *testing.T) {
 			ScheduleTime: time.Now().Unix() + 100,
 		}
 
-		errs := s.ValidateSchedule()
+		errs := s.ValidateSchedule(a, conf)
 		if len(errs) != 0 {
 			t.Fatalf("expected no errors, got %v", errs)
 		}

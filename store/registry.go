@@ -31,12 +31,14 @@ func InitializeCallbackRegistry(clientCallbacks map[string]Factory) {
 		constants.DefaultCallback: func() Callback { return &HttpCallback{} },
 	}
 
+	// First, register all client-provided callbacks
+	for callbackType, factory := range clientCallbacks {
+		Registry[callbackType] = factory
+	}
+
+	// Then, register default callbacks only if they haven't been provided by the client
 	for callbackType, factory := range defaultCallbacks {
-		if clientFactory, ok := clientCallbacks[callbackType]; ok {
-			// if the client provided an implementation, use it
-			Registry[callbackType] = clientFactory
-		} else {
-			// otherwise use the default
+		if _, ok := Registry[callbackType]; !ok {
 			Registry[callbackType] = factory
 		}
 	}

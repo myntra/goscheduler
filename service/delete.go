@@ -29,35 +29,18 @@ import (
 	"net/http"
 )
 
-// Record delete schedule success in StatsD
-func (s *Service) recordDeleteSuccess(schedule sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule, Delete) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-
-}
-
-// Record delete schedule failure in StatsD
-func (s *Service) recordDeleteFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.DeleteSchedule + constants.DOT + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func (s *Service) CancelSchedule(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	uuid := vars["scheduleId"]
 
 	schedule, err := s.DeleteSchedule(uuid)
 	if err != nil {
-		s.recordDeleteFail()
+		s.recordRequestStatus(constants.DeleteSchedule, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordDeleteSuccess(schedule)
+	s.recordRequestAppStatus(constants.DeleteSchedule, schedule.AppId, constants.Success)
 
 	status := Status{
 		StatusCode:    constants.SuccessCode200,
@@ -81,7 +64,7 @@ func (s *Service) DeleteSchedule(uuid string) (sch.Schedule, error) {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedule, err := s.scheduleDao.DeleteSchedule(scheduleId); err {
+	switch schedule, err := s.ScheduleDao.DeleteSchedule(scheduleId); err {
 	case gocql.ErrNotFound:
 		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
 	case nil:

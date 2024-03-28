@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS cluster.apps (
                                             id text,
                                             partitions int,
                                             active boolean,
+                                            configuration text,
                                             PRIMARY KEY (id)
 );
 

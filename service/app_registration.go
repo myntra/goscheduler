@@ -33,48 +33,6 @@ import (
 	"strconv"
 )
 
-func (s *Service) recordRegisterSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.RegisterApp + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordRegisterFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.RegisterApp + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordActivateSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.ActivateApp + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordActivateFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.ActivateApp + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordDeactivateSuccess() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.DeactivateApp + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (s *Service) recordDeactivateFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		key := constants.DeactivateApp + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
 func validateApp(input store.App) error {
 	return validateAppId(input.AppId)
 }
@@ -93,21 +51,21 @@ func (s *Service) Register(w http.ResponseWriter, r *http.Request) {
 	b, _ := ioutil.ReadAll(r.Body)
 	err := json.Unmarshal(b, &input)
 	if err != nil {
-		s.recordRegisterFail()
+		s.recordRequestStatus(constants.RegisterApp, constants.Fail)
 		er.Handle(w, r, er.NewError(er.UnmarshalErrorCode, err))
 		return
 	}
 
 	input, err = s.RegisterApp(input)
 	if err != nil {
-		s.recordRegisterFail()
+		s.recordRequestStatus(constants.RegisterApp, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordRegisterSuccess()
+	s.recordRequestStatus(constants.RegisterApp, constants.Success)
 	status := Status{StatusCode: constants.SuccessCode201, StatusMessage: constants.Success, StatusType: constants.Success, TotalCount: 1}
-	_ = json.NewEncoder(w).Encode(CreateAppResponse{Status: status, Data: CreateAppData{AppId: input.AppId, Partitions: input.Partitions, Active: input.Active}})
+	_ = json.NewEncoder(w).Encode(CreateAppResponse{Status: status, Data: CreateAppData{AppId: input.AppId, Partitions: input.Partitions, Active: input.Active, Configuration: input.Configuration}})
 }
 
 func (s *Service) RegisterApp(input store.App) (store.App, error) {
@@ -120,7 +78,7 @@ func (s *Service) RegisterApp(input store.App) (store.App, error) {
 		input.Partitions = s.Config.Poller.DefaultCount
 	}
 
-	err = s.clusterDao.InsertApp(input)
+	err = s.ClusterDao.InsertApp(input)
 	if err != nil {
 		return store.App{}, er.NewError(er.DataPersistenceFailure, err)
 	}
@@ -143,7 +101,7 @@ func (s *Service) createEntities(input store.App) error {
 			History: "",
 		}
 
-		err := s.clusterDao.CreateEntity(entity)
+		err := s.ClusterDao.CreateEntity(entity)
 		if err != nil {
 			return er.NewError(er.DataPersistenceFailure, err)
 		}
@@ -151,7 +109,7 @@ func (s *Service) createEntities(input store.App) error {
 		// We are calling boot entity with forward true. This is forward the request to the correct node
 		// if the current node is not the node to start the entity.
 		// TODO: Handle the error
-		err = s.supervisor.BootEntity(entity, true)
+		err = s.Supervisor.BootEntity(entity, true)
 		if err != nil {
 			return er.NewError(er.EntityBootFailed, err)
 		}
@@ -166,12 +124,12 @@ func (s *Service) Deactivate(w http.ResponseWriter, r *http.Request) {
 
 	err := s.DeactivateApp(appId)
 	if err != nil {
-		s.recordDeactivateFail()
+		s.recordRequestStatus(constants.DeactivateApp, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordDeactivateSuccess()
+	s.recordRequestStatus(constants.DeactivateApp, constants.Success)
 	status := Status{StatusCode: constants.SuccessCode201, StatusMessage: constants.Success, StatusType: constants.Success}
 	_ = json.NewEncoder(w).Encode(UpdateAppActiveStatusResponse{Status: status, Data: UpdateAppActiveStatusData{AppId: appId, Active: false}})
 }
@@ -182,7 +140,7 @@ func (s *Service) DeactivateApp(appId string) error {
 		return err
 	}
 
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	if err != nil {
 		return er.NewError(er.InvalidAppId, errors.New("unregistered App"))
 	}
@@ -191,12 +149,12 @@ func (s *Service) DeactivateApp(appId string) error {
 		return er.NewError(er.DeactivatedApp, errors.New("app is already deactivated"))
 	}
 
-	err = s.clusterDao.UpdateAppActiveStatus(appId, false)
+	err = s.ClusterDao.UpdateAppActiveStatus(appId, false)
 	if err != nil {
 		return er.NewError(er.DataPersistenceFailure, err)
 	}
 
-	s.supervisor.DeactivateApp(app)
+	s.Supervisor.DeactivateApp(app)
 	return nil
 }
 
@@ -206,12 +164,12 @@ func (s *Service) Activate(w http.ResponseWriter, r *http.Request) {
 
 	err := s.ActivateApp(appId)
 	if err != nil {
-		s.recordDeactivateFail()
+		s.recordRequestStatus(constants.ActivateApp, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordActivateSuccess()
+	s.recordRequestStatus(constants.ActivateApp, constants.Success)
 	status := Status{StatusCode: constants.SuccessCode201, StatusMessage: constants.Success, StatusType: constants.Success}
 	_ = json.NewEncoder(w).Encode(UpdateAppActiveStatusResponse{Status: status, Data: UpdateAppActiveStatusData{AppId: appId, Active: true}})
 }
@@ -222,7 +180,7 @@ func (s *Service) ActivateApp(appId string) error {
 		return err
 	}
 
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	if err != nil {
 		return er.NewError(er.InvalidAppId, errors.New("unregistered App"))
 	}
@@ -231,11 +189,11 @@ func (s *Service) ActivateApp(appId string) error {
 		return er.NewError(er.ActivatedApp, errors.New("app is already activated"))
 	}
 
-	err = s.clusterDao.UpdateAppActiveStatus(appId, true)
+	err = s.ClusterDao.UpdateAppActiveStatus(appId, true)
 	if err != nil {
 		return er.NewError(er.DataPersistenceFailure, err)
 	}
 
-	s.supervisor.ActivateApp(app)
+	s.Supervisor.ActivateApp(app)
 	return nil
 }

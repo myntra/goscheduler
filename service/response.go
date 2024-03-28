@@ -30,10 +30,10 @@ type CreateAppResponse struct {
 }
 
 type CreateAppData struct {
-	AppId      string `json:"appId"`
-	Partitions uint32 `json:"partitions"`
-	Active     bool   `json:"active"`
-	//Configuration s.Configuration `json:"configuration"`
+	AppId         string          `json:"appId"`
+	Partitions    uint32          `json:"partitions"`
+	Active        bool            `json:"active"`
+	Configuration s.Configuration `json:"configuration"`
 }
 
 type UpdateAppActiveStatusResponse struct {
@@ -47,8 +47,8 @@ type UpdateAppActiveStatusData struct {
 }
 
 type UpdateConfigurationData struct {
-	AppId string `json:"appId"`
-	//Configuration s.Configuration `json:"configuration"`
+	AppId         string          `json:"appId"`
+	Configuration s.Configuration `json:"configuration"`
 }
 
 type UpdateConfigurationResponse struct {
@@ -66,8 +66,8 @@ type DeleteScheduleData struct {
 }
 
 type DeleteConfigurationData struct {
-	AppId string `json:"appId"`
-	//Configuration s.Configuration `json:"configuration"`
+	AppId         string          `json:"appId"`
+	Configuration s.Configuration `json:"configuration"`
 }
 
 type DeleteConfigurationResponse struct {
@@ -127,19 +127,19 @@ type GetPaginatedAppSchedulesData struct {
 	ContinuationStartTime int64        `json:"continuationStartTime"`
 }
 
-//type GetConfigurationData struct {
-//	AppId         string          `json:"appId"`
-//	Configuration s.Configuration `json:"configuration"`
-//}
+type GetConfigurationData struct {
+	AppId         string          `json:"appId"`
+	Configuration s.Configuration `json:"configuration"`
+}
 
 type GetAppsData struct {
 	Apps []s.App `json:"apps"`
 }
 
-//type GetConfigurationResponse struct {
-//	Status Status               `json:"status"`
-//	Data   GetConfigurationData `json:"data"`
-//}
+type GetConfigurationResponse struct {
+	Status Status               `json:"status"`
+	Data   GetConfigurationData `json:"data"`
+}
 
 type CreateScheduleResponse struct {
 	Status Status             `json:"status"`
@@ -151,8 +151,8 @@ type CreateScheduleData struct {
 }
 
 type CreateConfigurationData struct {
-	AppId string `json:"appId"`
-	//Configuration s.Configuration `json:"configuration"`
+	AppId         string          `json:"appId"`
+	Configuration s.Configuration `json:"configuration"`
 }
 
 type CreateConfigurationResponse struct {

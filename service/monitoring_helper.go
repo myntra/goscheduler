@@ -73,3 +73,12 @@ func prefix(schedule s.Schedule, _type action) string {
 		return ""
 	}
 }
+
+// Prefix the StatsD bucket based on action type and app id.
+func getAppId(schedule s.Schedule) string {
+	appId := schedule.AppId
+	if len(appId) == 0 {
+		appId = "0"
+	}
+	return appId
+}

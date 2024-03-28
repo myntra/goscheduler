@@ -65,23 +65,11 @@ func parseQueryParams(r *http.Request) (int64, string, []byte, error) {
 
 // Record get runs success in StatsD
 func (s *Service) recordGetRunsSuccess(schedules []sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		schedule := sch.Schedule{}
-		if len(schedules) > 0 {
-			schedule = schedules[0]
-		}
-
-		bucket := prefix(schedule, GetRun) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
+	schedule := sch.Schedule{}
+	if len(schedules) > 0 {
+		schedule = schedules[0]
 	}
-}
-
-// Record get runs failure in StatsD
-func (s *Service) recordGetRunsFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.GetScheduleRuns + constants.DOT + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
+	s.recordRequestAppStatus(constants.GetScheduleRuns, getAppId(schedule), constants.Success)
 }
 
 func (s *Service) GetRuns(w http.ResponseWriter, r *http.Request) {
@@ -90,14 +78,14 @@ func (s *Service) GetRuns(w http.ResponseWriter, r *http.Request) {
 
 	size, when, pageState, err := parseQueryParams(r)
 	if err != nil {
-		s.recordGetRunsFail()
+		s.recordRequestStatus(constants.GetScheduleRuns, constants.Fail)
 		er.Handle(w, r, er.NewError(er.InvalidDataCode, err))
 		return
 	}
 
 	schedules, pageState, err := s.FetchCronRuns(scheduleId, size, when, pageState)
 	if err != nil {
-		s.recordGetRunsFail()
+		s.recordRequestStatus(constants.GetScheduleRuns, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
@@ -131,7 +119,7 @@ func (s *Service) FetchCronRuns(uuid string, size int64, when string, pageState 
 		return []sch.Schedule{}, nil, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedules, pageState, err := (s.scheduleDao).GetScheduleRuns(scheduleId, size, when, pageState); {
+	switch schedules, pageState, err := (s.ScheduleDao).GetScheduleRuns(scheduleId, size, when, pageState); {
 	case err != nil:
 		return []sch.Schedule{}, nil, er.NewError(er.DataFetchFailure, err)
 	case len(schedules) == 0:

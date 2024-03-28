@@ -1,5 +1,7 @@
 {
   "HttpPort": "8080",
+  "CreateSchema": true,
+  "SchemaPath": "/src/goscheduler/cassandra/cassandra.cql",
   "Cluster": {
     "ClusterName": "goscheduler",
     "Address": "127.0.0.1:9091",
@@ -20,18 +22,13 @@
     "DBConfig": {
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
         "MaxNumConnections" : 4
       }
     },
-    "EntityHistorySize": 1000
+    "EntityHistorySize": 100
   },
   "ScheduleDB": {
     "ScheduleKeySpace": "schedule_management",
@@ -39,11 +36,6 @@
     "DBConfig": {
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -88,9 +80,6 @@
     "BatchSize": 2,
     "FlushPeriod": 60
   },
-  "VaultConfig": {
-    "Enabled": false
-  },
   "Newrelic":{
     "LicenseKey" :"abcd",
     "AppName": "local",
@@ -107,9 +96,5 @@
     "HistorySize": 2,
     "BufferSize": 1000,
     "Routines": 10
-  },
-  "CallBackCounter": {
-    "Offset": 2,
-    "Window": 2
   }
 }

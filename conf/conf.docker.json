@@ -1,5 +1,7 @@
 {
   "HttpPort": "8080",
+  "CreateSchema": true,
+  "SchemaPath": "/src/goscheduler/cassandra/cassandra.cql",
   "Cluster": {
     "ClusterName": "goscheduler",
     "Address": "<hostname>:9091",
@@ -20,18 +22,13 @@
     "DBConfig": {
       "Hosts": "cassandra",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
         "MaxNumConnections" : 4
       }
     },
-    "EntityHistorySize": 1000
+    "EntityHistorySize": 100
   },
   "ScheduleDB": {
     "ScheduleKeySpace": "schedule_management",
@@ -39,11 +36,6 @@
     "DBConfig": {
       "Hosts": "cassandra",
       "Consistency": "ONE",
-      "VaultConfig": {
-        "Enabled": false,
-        "Username": "cassandra",
-        "Password": "cassandra"
-      },
       "ConnectionPool":{
         "InitialConnectTimeout" : 1000,
         "ConnectTimeout" : 1000,
@@ -69,7 +61,6 @@
       "Enabled": false
     }
   },
-
   "Poller": {
     "Interval": 60,
     "BufferSize": 1000,
@@ -99,41 +90,11 @@
     "Window": 5,
     "Routines": 10
   },
-  "GoLimitConfig": {
-    "Host": "<hostname>",
-    "ClusterName": "golimit",
-    "RateLimitConfig": {
-      "RejectRequests": false,
-      "RateLimit": {
-        "CREATE_SCHEDULE": {
-          "default": {
-            "Window": 60,
-            "Threshold": 1200
-          }
-        },
-        "DELETE_SCHEDULE": {
-          "default": {
-            "Window": 60,
-            "Threshold": 1000
-          }
-        }
-      }
-    },
-    "TChannelPort": "2479",
-    "UnsyncedTimeLimitMS": 2000,
-    "UnsyncedCtrlLimit": 10,
-    "Seed": "service1:2479,service2:2479",
-    "Enable": true
-  },
   "BulkActionConfig": {
     "AppName": "goscheduler",
     "EventName": "bulkAction",
     "HistorySize": 2,
     "BufferSize": 1000,
     "Routines": 10
-  },
-  "CallBackCounter": {
-    "Offset": 2,
-    "Window": 2
   }
 }

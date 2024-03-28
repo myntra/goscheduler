@@ -42,10 +42,10 @@ func (retriever Retrievers) Get(app string) retrieveriface.Retriever {
 	return retriever[_default]
 }
 
-func InitRetrievers(cronConfig *conf.CronConfig, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *p.Monitoring) Retrievers {
+func InitRetrievers(cronConfig *conf.CronConfig, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor p.Monitor) Retrievers {
 	cronApp := cronConfig.App
 	return Retrievers{
-		_default: ScheduleRetriever{clusterDao: clusterDao, scheduleDao: scheduleDao, monitoring: monitoring},
-		cronApp:  CronRetriever{scheduleDao: scheduleDao, cronConfig: cronConfig, monitoring: monitoring},
+		_default: ScheduleRetriever{clusterDao: clusterDao, scheduleDao: scheduleDao, monitor: monitor},
+		cronApp:  CronRetriever{scheduleDao: scheduleDao, cronConfig: cronConfig, monitor: monitor},
 	}
 }

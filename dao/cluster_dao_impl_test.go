@@ -32,14 +32,23 @@ import (
 
 func setupClusterDaoMocks(t *testing.T) (*ClusterDaoImplCassandra, *mocks.MockSessionInterface, *mocks.MockQueryInterface, *mocks.MockIterInterface, *gomock.Controller) {
 	dao := &ClusterDaoImplCassandra{
-		ClusterConfig: &conf.ClusterConfig{
-			PageSize: 10,
-			NumRetry: 2,
-		},
-		ClusterDBConfig: &conf.ClusterDBConfig{
-			ClusterKeySpace:   "",
-			DBConfig:          conf.CassandraConfig{},
-			EntityHistorySize: 0,
+		Conf: &conf.Configuration{
+			Cluster: conf.ClusterConfig{
+				PageSize: 10,
+				NumRetry: 2,
+			},
+			ClusterDB: conf.ClusterDBConfig{
+				ClusterKeySpace:   "",
+				DBConfig:          conf.CassandraConfig{},
+				EntityHistorySize: 0,
+			},
+			Poller: conf.PollerConfig{
+				Interval:     60,
+				DefaultCount: 5,
+			},
+			CronConfig: conf.CronConfig{
+				App: "Athena",
+			},
 		},
 		AppMap: AppMap{
 			lock: sync.RWMutex{},
@@ -309,7 +318,7 @@ func TestClusterDaoImplCassandra_InsertApp(t *testing.T) {
 	dao, m, mq, _, ctrl := setupClusterDaoMocks(t)
 	defer ctrl.Finish()
 
-	m.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(mq).AnyTimes()
+	m.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(mq).AnyTimes()
 	gomock.InOrder(
 		mq.EXPECT().Exec().Return(nil).Times(2),
 		mq.EXPECT().Exec().Return(errors.New("error inserting app")).Times(2),

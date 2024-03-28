@@ -35,12 +35,14 @@ import (
 func setupMocks(t *testing.T) (*ScheduleDaoImpl, *mocks.MockSessionInterface, *mocks.MockQueryInterface, *mocks.MockIterInterface, *gomock.Controller) {
 	s.Registry[constants.DefaultCallback] = func() s.Callback { return &s.HttpCallback{} }
 	dao := &ScheduleDaoImpl{
-		ClusterConfig: &conf.ClusterConfig{
-			PageSize: 10,
-			NumRetry: 2,
-		},
-		AggregateSchedulesConfig: &conf.AggregateSchedulesConfig{
-			FlushPeriod: 60,
+		Conf: &conf.Configuration{
+			Cluster: conf.ClusterConfig{
+				PageSize: 10,
+				NumRetry: 2,
+			},
+			AggregateSchedulesConfig: conf.AggregateSchedulesConfig{
+				FlushPeriod: 60,
+			},
 		},
 	}
 	ctrl := gomock.NewController(t)
@@ -61,6 +63,13 @@ func TestScheduleDaoImpl_CreateSchedule(t *testing.T) {
 	m.EXPECT().Query(gomock.Any(), gomock.Any()).Return(mq).AnyTimes()
 	mq.EXPECT().Exec().Return(nil).AnyTimes()
 	mq.EXPECT().Consistency(gomock.Any()).Return(mq).AnyTimes()
+
+	app := s.App{
+		AppId:         "Test",
+		Partitions:    2,
+		Active:        true,
+		Configuration: s.Configuration{},
+	}
 
 	callbackDetails := s.Details{
 		Url:     "http://example.com/callback",
@@ -85,14 +94,14 @@ func TestScheduleDaoImpl_CreateSchedule(t *testing.T) {
 	}
 
 	// Test for recurring schedule
-	createdSchedule, err := dao.CreateSchedule(schedule)
+	createdSchedule, err := dao.CreateSchedule(schedule, app)
 	assert.NoError(t, err)
 	assert.Equal(t, schedule.Payload, createdSchedule.Payload)
 	assert.True(t, createdSchedule.IsRecurring())
 
 	// Test for one-time schedule
 	schedule.CronExpression = ""
-	createdSchedule, err = dao.CreateSchedule(schedule)
+	createdSchedule, err = dao.CreateSchedule(schedule, app)
 	assert.NoError(t, err)
 	assert.Equal(t, schedule.Payload, createdSchedule.Payload)
 	assert.False(t, createdSchedule.IsRecurring())
@@ -243,6 +252,13 @@ func TestScheduleDaoImpl_UpdateStatus(t *testing.T) {
 	dao, m, _, _, ctrl := setupMocks(t)
 	defer ctrl.Finish()
 
+	app := s.App{
+		AppId:         "testApp",
+		Partitions:    2,
+		Active:        true,
+		Configuration: s.Configuration{},
+	}
+
 	schedules := []s.Schedule{
 		{
 			AppId:                 "testApp",
@@ -266,7 +282,7 @@ func TestScheduleDaoImpl_UpdateStatus(t *testing.T) {
 
 	m.EXPECT().ExecuteBatch(gomock.Any()).Return(nil).AnyTimes()
 
-	err := dao.UpdateStatus(schedules)
+	err := dao.UpdateStatus(schedules, app)
 	if err != nil {
 		t.Errorf("Expected no error, got %s", err)
 	}

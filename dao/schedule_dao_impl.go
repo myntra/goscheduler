@@ -31,83 +31,30 @@ import (
 	"github.com/myntra/goscheduler/db_wrapper"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
-	"gopkg.in/alexcesaro/statsd.v2"
 	"runtime/debug"
-	"strconv"
 	"time"
 )
 
 const BatchSize = 50
 
 type ScheduleDaoImpl struct {
-	Session    db_wrapper.SessionInterface
-	Monitoring *p.Monitoring
-	//TODO: Can we merge this?
-	ClusterConfig            *conf.ClusterConfig
-	AggregateSchedulesConfig *conf.AggregateSchedulesConfig
+	Session db_wrapper.SessionInterface
+	Conf    *conf.Configuration
+	Monitor p.Monitor
 }
 
 // Profile execution of do
-func (s *ScheduleDaoImpl) profile(do func() (store.Schedule, error), bucket string) (store.Schedule, error) {
-	var timing statsd.Timing
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing = s.Monitoring.StatsDClient.NewTiming()
-	}
+func (s *ScheduleDaoImpl) profile(do func() (store.Schedule, error), metric, appId string) (store.Schedule, error) {
+	startTime := time.Now()
 
 	result, err := do()
 
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		s.Monitoring.StatsDClient.Increment(bucket)
+	if s.Monitor != nil {
+		duration := time.Since(startTime)
+		s.Monitor.RecordTiming(metric, map[string]string{"appId": appId}, duration)
 	}
 
 	return result, err
-}
-
-// prefix for getBulkStatus update
-func (s *ScheduleDaoImpl) getEnrichSchedulePrefix(appId string, partitionId int) string {
-	return "scheduleRetriever" + constants.DOT + "enrichSchedule" + constants.DOT + appId + constants.DOT + strconv.Itoa(partitionId)
-}
-
-// Record enrich schedule in bulk success
-func (s *ScheduleDaoImpl) recordEnrichSchedulesSuccess(prefix string) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record enrich schedule in bulk failure
-func (s *ScheduleDaoImpl) recordEnrichScheduleFailure(prefix string) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record statsD metrics for the execution of do()
-// log error messages in case of failures
-func (s *ScheduleDaoImpl) recordAndLog(do func() ([]store.Schedule, error), bucket string) ([]store.Schedule, error) {
-	var timing statsd.Timing
-
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing = s.Monitoring.StatsDClient.NewTiming()
-	}
-
-	schedules, err := do()
-
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-
-	if err != nil {
-		s.recordEnrichScheduleFailure(bucket)
-		glog.Errorf("Schedule enrichment failed for bucket: %s with error %s", bucket, err.Error())
-	} else {
-		s.recordEnrichSchedulesSuccess(bucket)
-	}
-	return schedules, err
 }
 
 type Range struct {
@@ -117,17 +64,16 @@ type Range struct {
 	EndTime time.Time
 }
 
-func GetScheduleDaoImpl(clusterDConfig *conf.ClusterConfig, scheduleDBConfig *conf.ScheduleDBConfig, aggregateSchedulesConfig *conf.AggregateSchedulesConfig, monitoring *p.Monitoring) *ScheduleDaoImpl {
-	session, err := cassandra.GetSessionInterface(scheduleDBConfig.DBConfig, scheduleDBConfig.ScheduleKeySpace)
+func GetScheduleDaoImpl(conf *conf.Configuration, monitor p.Monitor) *ScheduleDaoImpl {
+	session, err := cassandra.GetSessionInterface(conf.ScheduleDB.DBConfig, conf.ScheduleDB.ScheduleKeySpace)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", scheduleDBConfig.DBConfig, err.Error()))
+		err = errors.New(fmt.Sprintf("Cassandra initialisation failed for configuration: %+v with error %s", conf.ScheduleDB.DBConfig, err.Error()))
 		panic(err)
 	}
 	return &ScheduleDaoImpl{
-		Session:                  session,
-		ClusterConfig:            clusterDConfig,
-		AggregateSchedulesConfig: aggregateSchedulesConfig,
-		Monitoring:               monitoring,
+		Session: session,
+		Conf:    conf,
+		Monitor: monitor,
 	}
 }
 
@@ -179,7 +125,7 @@ func (s *ScheduleDaoImpl) createRecurringSchedule(schedule store.Schedule) (stor
 
 // Persist a one time schedule in Cassandra.
 // Throws error if writing data to schedule fails.
-func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule, app store.App) (store.Schedule, error) {
 	query := "INSERT INTO schedules (" +
 		"app_id," +
 		"partition_id," +
@@ -188,7 +134,7 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.
 		"schedule_time," +
 		"payload," +
 		"callback_type," +
-		"callback_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+		"callback_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?"
 
 	err := s.Session.Query(
 		query,
@@ -199,7 +145,8 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.
 		schedule.ScheduleTime*constants.SecondsToMillis,
 		schedule.Payload,
 		schedule.GetCallBackType(),
-		schedule.GetCallbackDetails()).Exec()
+		schedule.GetCallbackDetails(),
+		schedule.GetTTL(app, s.Conf.AppLevelConfiguration.FiredScheduleRetentionPeriod)).Exec()
 
 	return schedule, err
 }
@@ -207,17 +154,15 @@ func (s *ScheduleDaoImpl) createOneTimeSchedule(schedule store.Schedule) (store.
 // Persist the schedule details in cassandra.
 // The tables to which the schedule is written to is determined based on it being a recurring schedule or not.
 // Throws error if the writing to the schedule fails.
-func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) CreateSchedule(schedule store.Schedule, app store.App) (store.Schedule, error) {
 	if schedule.IsRecurring() {
-		bucket := constants.CassandraInsert + constants.DOT + constants.CreateRecurringSchedule
 		return s.profile(func() (store.Schedule, error) {
 			return s.createRecurringSchedule(schedule)
-		}, bucket)
+		}, constants.CreateRecurringSchedule, schedule.AppId)
 	} else {
-		bucket := constants.CassandraInsert + constants.DOT + constants.CreateSchedule
 		return s.profile(func() (store.Schedule, error) {
-			return s.createOneTimeSchedule(schedule)
-		}, bucket)
+			return s.createOneTimeSchedule(schedule, app)
+		}, constants.CreateOneTimeSchedule, schedule.AppId)
 	}
 }
 
@@ -241,7 +186,7 @@ func (s *ScheduleDaoImpl) GetRecurringScheduleByPartition(partitionId int) ([]st
 
 	_map := make(map[string]interface{})
 	iter := s.Session.Query(query, partitionId).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 
 	for iter.MapScan(_map) {
@@ -279,7 +224,7 @@ func (s *ScheduleDaoImpl) getRecurringSchedule(uuid gocql.UUID) (store.Schedule,
 
 	_map := make(map[string]interface{})
 	err := s.Session.Query(query, uuid).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		MapScan(_map)
 	if err != nil {
 		return store.Schedule{}, err
@@ -307,7 +252,7 @@ func (s *ScheduleDaoImpl) getOneTimeSchedule(uuid gocql.UUID) (store.Schedule, e
 
 	_map := make(map[string]interface{})
 	err := s.Session.Query(query, uuid).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		MapScan(_map)
 	if err != nil {
 		return store.Schedule{}, err
@@ -460,7 +405,7 @@ func (s *ScheduleDaoImpl) getRuns(uuid gocql.UUID, pageState []byte, size int64)
 	return s.Session.Query(query, uuid).
 		PageState(pageState).
 		PageSize(int(size)).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 }
 
@@ -659,7 +604,7 @@ func (s *ScheduleDaoImpl) GetScheduleRuns(uuid gocql.UUID, size int64, when stri
 // Create a one time schedule for a recurring schedule.
 // The schedule will be persisted in schedule and runs tables.
 // Returns a non nil error in case persisting the data fails.
-func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, error) {
+func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule, app store.App) (store.Schedule, error) {
 
 	batch := gocql.NewBatch(gocql.LoggedBatch)
 
@@ -672,7 +617,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 		"payload," +
 		"callback_type," +
 		"callback_details," +
-		"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?",
 
 		"INSERT INTO recurring_schedule_runs (" +
 			"app_id," +
@@ -683,10 +628,10 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 			"payload," +
 			"callback_type," +
 			"callback_details," +
-			"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?",
 	} {
 		batch.
-			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 			Query(
 				query,
 				schedule.AppId,
@@ -697,7 +642,8 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 				schedule.Payload,
 				schedule.GetCallBackType(),
 				schedule.GetCallbackDetails(),
-				schedule.ParentScheduleId)
+				schedule.ParentScheduleId,
+				schedule.GetTTL(app, s.Conf.AppLevelConfiguration.FiredScheduleRetentionPeriod))
 	}
 
 	return schedule, s.Session.ExecuteBatch(batch)
@@ -705,7 +651,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule) (store.Schedule, er
 
 // updates status in batches
 // set ttl same as buffer ttl as data is added to this table after callback is fired
-func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
+func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule, app store.App) error {
 	//log schedule status update
 	for _, schedule := range schedules {
 		glog.Infof("update status for schedule: %s", schedule.ScheduleId.String())
@@ -718,7 +664,7 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
 		"schedule_id," +
 		"schedule_status," +
 		"error_msg," +
-		"reconciliation_history) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		"reconciliation_history) VALUES (?, ?, ?, ?, ?, ?, ?) USING TTL ?"
 
 	batch := gocql.NewBatch(gocql.UnloggedBatch)
 
@@ -726,7 +672,7 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
 		reconciliationHistory, _ := json.Marshal(query.ReconciliationHistory)
 
 		batch.
-			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 			Query(
 				insertStatusQuery,
 				query.AppId,
@@ -735,7 +681,8 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule) error {
 				query.ScheduleId,
 				query.Status,
 				query.ErrorMessage,
-				reconciliationHistory)
+				reconciliationHistory,
+				query.GetTTL(app, s.Conf.AppLevelConfiguration.FiredScheduleRetentionPeriod))
 	}
 
 	return s.Session.ExecuteBatch(batch)
@@ -905,7 +852,7 @@ func (s *ScheduleDaoImpl) getSchedules(appId string, partitions []int, timeRange
 		timeStamps(timeRange.StartTime, timeRange.EndTime)).
 		PageState(pageState).
 		PageSize(int(size)).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 
 	return iter
@@ -934,8 +881,8 @@ func (s *ScheduleDaoImpl) GetSchedulesForEntity(appId string, partitionId int, t
 		partitionId,
 		timeBucket).
 		PageState(pageState).
-		PageSize(s.ClusterConfig.PageSize).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		PageSize(s.Conf.Cluster.PageSize).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 
 	return iter
@@ -971,12 +918,12 @@ func (s *ScheduleDaoImpl) setStatus(schedule *store.Schedule) error {
 		schedule.AppId,
 		schedule.PartitionId,
 		schedule.ScheduleId).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		MapScan(_map)
 
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			schedule.SetUnknownStatus(s.AggregateSchedulesConfig.FlushPeriod)
+			schedule.SetUnknownStatus(s.Conf.AggregateSchedulesConfig.FlushPeriod)
 			return nil
 		}
 		return err
@@ -1016,7 +963,7 @@ func (s *ScheduleDaoImpl) getBulkStatus(schedules []store.Schedule) db_wrapper.I
 		schedules[0].AppId,
 		schedules[0].PartitionId,
 		uuids).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 
 	return iter
@@ -1066,7 +1013,7 @@ func (s *ScheduleDaoImpl) OptimizedEnrichSchedule(schedules []store.Schedule) ([
 	// Set status of schedules which are not present in status table
 	for uuid, schedule := range idToSchedule {
 		if _, ok := found[uuid]; !ok {
-			schedule.SetUnknownStatus(s.AggregateSchedulesConfig.FlushPeriod)
+			schedule.SetUnknownStatus(s.Conf.AggregateSchedulesConfig.FlushPeriod)
 
 			glog.V(constants.INFO).Infof("Enriched Schedule: %+v", schedule)
 			enrichedSchedules = append(enrichedSchedules, schedule)
@@ -1093,7 +1040,7 @@ func (s *ScheduleDaoImpl) GetCronSchedulesByApp(appId string, status store.Statu
 
 	_map := make(map[string]interface{})
 	iter := s.Session.Query(query).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.ClusterConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 
 	for iter.MapScan(_map) {
@@ -1118,7 +1065,6 @@ func (s *ScheduleDaoImpl) GetCronSchedulesByApp(appId string, status store.Statu
 func (s *ScheduleDaoImpl) BulkAction(app store.App, partitionId int, scheduleTimeGroup time.Time, status []store.Status, actionType store.ActionType) error {
 	defer func() {
 		if r := recover(); r != nil {
-			s.Monitoring.StatsDClient.Increment(constants.Panic + constants.DOT + string(actionType))
 			glog.Errorf("Recovered in %s from error %+v with stacktrace %s", string(actionType), r, string(debug.Stack()))
 		}
 	}()
@@ -1195,9 +1141,10 @@ func (s *ScheduleDaoImpl) actionIfRequired(app store.App, schedules []store.Sche
 		return nil
 	}
 
-	enrichedSchedules, err := s.recordAndLog(
-		func() ([]store.Schedule, error) { return s.OptimizedEnrichSchedule(schedules) },
-		s.getEnrichSchedulePrefix(schedules[0].AppId, schedules[0].PartitionId))
+	enrichedSchedules, err := s.OptimizedEnrichSchedule(schedules)
+	if err != nil {
+		glog.Errorf("Schedule enrichment failed for appId: %s, partitionId: %d with error %s", schedules[0].AppId, schedules[0].PartitionId, err.Error())
+	}
 
 	// we already logged the error, so no need to log it
 	if err != nil {

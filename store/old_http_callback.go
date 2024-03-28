@@ -17,60 +17,69 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package service
+package store
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/myntra/goscheduler/constants"
-	er "github.com/myntra/goscheduler/error"
-	"github.com/myntra/goscheduler/store"
-	"net/http"
+	"net/url"
 )
 
-func parseAppQueryParams(r *http.Request) string {
-	query := r.URL.Query()
-	return query.Get("app_id")
+func (h *HTTPCallback) GetType() string {
+	return constants.HttpCallback
 }
 
-func (s *Service) GetApps(w http.ResponseWriter, r *http.Request) {
-	appId := parseAppQueryParams(r)
+func (h *HTTPCallback) GetDetails() (string, error) {
+	details, err := json.Marshal(h)
+	return string(details), err
+}
 
-	apps, err := s.FetchApps(appId)
+func (h *HTTPCallback) Marshal(m map[string]interface{}) error {
+	callbackUrl, ok := m["call_back_url"].(string)
+	if !ok {
+		return fmt.Errorf("wrong call_back_url")
+	}
+
+	headers, ok := m["headers"].(map[string]string)
+	if !ok {
+		return fmt.Errorf("wrong headers")
+	}
+
+	h.Url = callbackUrl
+	h.Headers = headers
+
+	return nil
+}
+
+// UnmarshalJSON Implement UnmarshalJSON for HttpCallback
+func (h *HTTPCallback) UnmarshalJSON(data []byte) error {
+	type Alias HTTPCallback
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(h),
+	}
+	return json.Unmarshal(data, &aux)
+}
+
+func (h *HTTPCallback) Invoke(wrapper ScheduleWrapper) error {
+	OldHttpTaskQueue <- wrapper
+	return nil
+}
+
+func (h *HTTPCallback) Validate() error {
+	// Checking if URL is empty
+	if h.Url == "" {
+		return errors.New("url cannot be empty")
+	}
+
+	// Checking if the URL is valid
+	_, err := url.ParseRequestURI(h.Url)
 	if err != nil {
-		s.recordRequestStatus(constants.GetApps, constants.Fail)
-		er.Handle(w, r, err.(er.AppError))
-		return
+		return errors.New("invalid url")
 	}
 
-	s.recordRequestStatus(constants.GetApps, constants.Success)
-
-	status := Status{
-		StatusCode:    constants.SuccessCode200,
-		StatusMessage: constants.Success,
-		StatusType:    constants.Success,
-		TotalCount:    len(apps),
-	}
-
-	data := GetAppsData{
-		Apps: apps,
-	}
-
-	_ = json.NewEncoder(w).Encode(
-		GetAppsResponse{
-			Status: status,
-			Data:   data,
-		})
-}
-
-func (s *Service) FetchApps(appId string) ([]store.App, error) {
-	switch apps, err := s.ClusterDao.GetApps(appId); {
-	case err != nil:
-		return []store.App{}, er.NewError(er.DataFetchFailure, err)
-	case len(apps) == 0:
-		return []store.App{}, er.NewError(er.DataNotFound, errors.New(fmt.Sprint("No app found")))
-	default:
-		return apps, nil
-	}
+	return nil
 }

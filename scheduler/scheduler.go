@@ -20,8 +20,6 @@
 package scheduler
 
 import (
-	"os"
-
 	"github.com/gorilla/mux"
 	"github.com/myntra/goscheduler/cassandra"
 	"github.com/myntra/goscheduler/cluster"
@@ -30,44 +28,49 @@ import (
 	"github.com/myntra/goscheduler/dao"
 	m "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/poller"
-	"github.com/myntra/goscheduler/retrievers"
+	r "github.com/myntra/goscheduler/retrievers"
 	"github.com/myntra/goscheduler/server"
 	s "github.com/myntra/goscheduler/service"
 	st "github.com/myntra/goscheduler/store"
+	"os"
 )
 
 // Scheduler is a struct that holds pointers to various components of the scheduler.
 type Scheduler struct {
 	Config     *c.Configuration
+	Router     *mux.Router
 	Supervisor *cluster.Supervisor
 	Service    *s.Service
 	Connectors *conn.Connector
-	Monitoring *m.Monitoring
+	Retrievers r.Retrievers
+	Monitor    m.Monitor
 }
 
 // initCassandra initializes the Cassandra database with the given configuration and schema.
-func initCassandra(conf *c.Configuration) {
-	cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+"/src/goscheduler/cassandra/cassandra.cql")
+func initCassandra(conf *c.Configuration, createSchema bool) {
+	if createSchema {
+		cassandra.CassandraInit(conf.ClusterDB.DBConfig, os.Getenv("GOPATH")+conf.SchemaPath)
+	}
 }
 
 // initDAOs creates and returns the implementation objects for the Cluster and Schedule data access objects.
-func initDAOs(conf *c.Configuration, monitoring *m.Monitoring) (dao.ClusterDao, dao.ScheduleDao) {
-	clusterDao := dao.GetClusterDaoImpl(&conf.Cluster, &conf.ClusterDB)
-	scheduleDao := dao.GetScheduleDaoImpl(&conf.Cluster, &conf.ScheduleDB, &conf.AggregateSchedulesConfig, monitoring)
+func initDAOs(conf *c.Configuration, monitor m.Monitor) (dao.ClusterDao, dao.ScheduleDao) {
+	clusterDao := dao.GetClusterDaoImpl(conf, monitor)
+	scheduleDao := dao.GetScheduleDaoImpl(conf, monitor)
 	return clusterDao, scheduleDao
 }
 
 // initRetrievers initializes the retrievers for the schedules and clusters using the configuration provided.
-func initRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *m.Monitoring) retrievers.Retrievers {
-	return retrievers.InitRetrievers(&conf.CronConfig, clusterDao, scheduleDao, monitoring)
+func initRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor) r.Retrievers {
+	return r.InitRetrievers(&conf.CronConfig, clusterDao, scheduleDao, monitor)
 }
 
 // initSupervisor creates a new Supervisor object that manages the cluster of nodes running the scheduler.
-func initSupervisor(conf *c.Configuration, retrievers retrievers.Retrievers, clusterDao dao.ClusterDao, monitoring *m.Monitoring) *cluster.Supervisor {
+func initSupervisor(conf *c.Configuration, retrievers r.Retrievers, clusterDao dao.ClusterDao, monitor m.Monitor) *cluster.Supervisor {
 	supervisor := cluster.NewSupervisor(
-		poller.NewPollerFactory(retrievers, conf.Poller, monitoring),
+		poller.NewPollerFactory(retrievers, conf.Poller, monitor),
 		clusterDao,
-		monitoring,
+		monitor,
 		cluster.WithClusterName(conf.Cluster.ClusterName),
 		cluster.WithAddress(conf.Cluster.Address),
 		cluster.WithBootStrapServers(conf.Cluster.BootStrapServers),
@@ -84,28 +87,27 @@ func initSupervisor(conf *c.Configuration, retrievers retrievers.Retrievers, clu
 }
 
 // initConnectors creates the connector object used to communicate with the cluster nodes.
-func initConnectors(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *m.Monitoring) *conn.Connector {
+func initConnectors(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, callbackWorkers bool) *conn.Connector {
 	t := &st.Task{Conf: conf}
 	t.InitTaskQueues()
-	connector := conn.NewConnector(conf, clusterDao, scheduleDao, monitoring)
-	connector.InitConnectors()
+	connector := conn.NewConnector(conf, clusterDao, scheduleDao, monitor)
+	connector.InitConnectors(callbackWorkers)
 	return connector
 }
 
 // initService creates a new Service object that handles the scheduling logic and communication with the cluster nodes.
-func initService(conf *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitoring *m.Monitoring) *s.Service {
-	return s.NewService(conf, supervisor, clusterDao, scheduleDao, monitoring)
+func initService(conf *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor) *s.Service {
+	return s.NewService(conf, supervisor, clusterDao, scheduleDao, monitor)
 }
 
-// startHTTPServer starts an HTTP server using the provided configuration and Service object to handle requests.
-func startHTTPServer(conf *c.Configuration, service *s.Service) {
-	router := mux.NewRouter().StrictSlash(true)
-	go server.NewHTTPServer(conf.HttpPort, router, service)
+// initServer starts an HTTP server using the provided configuration and Service object to handle requests.
+func initServer(conf *c.Configuration, router *mux.Router, service *s.Service) *server.Server {
+	return server.NewHTTPServer(conf.HttpPort, router, service)
 }
 
 // initMonitoring initializes the monitoring component with the given configuration.
-func initMonitoring(conf *c.Configuration) *m.Monitoring {
-	return m.NewMonitoring(&conf.MonitoringConfig)
+func initMonitoring() m.Monitor {
+	return m.NewPrometheusMonitor()
 }
 
 func initCallbackRegistry(registry map[string]st.Factory) {
@@ -115,21 +117,47 @@ func initCallbackRegistry(registry map[string]st.Factory) {
 // New creates a new Scheduler instance with a given configuration and callback factories.
 // This is a base constructor that uses configuration and callback factory objects directly.
 func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Scheduler {
-	initCassandra(conf)
+	initCassandra(conf, true)
 	initCallbackRegistry(callbackFactories)
-	monitoring := initMonitoring(conf)
-	clusterDao, schedulerDao := initDAOs(conf, monitoring)
-	retrievers := initRetrievers(conf, clusterDao, schedulerDao, monitoring)
-	supervisor := initSupervisor(conf, retrievers, clusterDao, monitoring)
-	connectors := initConnectors(conf, clusterDao, schedulerDao, monitoring)
-	service := initService(conf, supervisor, clusterDao, schedulerDao, monitoring)
-	startHTTPServer(conf, service)
+	monitor := initMonitoring()
+	clusterDao, schedulerDao := initDAOs(conf, monitor)
+	retrievers := initRetrievers(conf, clusterDao, schedulerDao, monitor)
+	supervisor := initSupervisor(conf, retrievers, clusterDao, monitor)
+	connectors := initConnectors(conf, clusterDao, schedulerDao, monitor, true)
+	service := initService(conf, supervisor, clusterDao, schedulerDao, monitor)
+	router := mux.NewRouter().StrictSlash(true)
+	svr := initServer(conf, router, service)
+	go svr.StartServer()
 	return &Scheduler{
 		Config:     conf,
+		Router:     router,
 		Supervisor: supervisor,
 		Service:    service,
 		Connectors: connectors,
-		Monitoring: monitoring,
+		Retrievers: retrievers,
+		Monitor:    monitor,
+	}
+}
+
+//TODO: Reformat this constructor
+// NewScheduler creates a new Scheduler instance with a given params.
+func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, createSchema bool, callbackWorkers bool) *Scheduler {
+	initCassandra(conf, createSchema)
+	initCallbackRegistry(callbackFactories)
+	retrievers := initRetrievers(conf, clusterDao, scheduleDao, monitor)
+	supervisor := initSupervisor(conf, retrievers, clusterDao, monitor)
+	connectors := initConnectors(conf, clusterDao, scheduleDao, monitor, callbackWorkers)
+	service := initService(conf, supervisor, clusterDao, scheduleDao, monitor)
+	router := mux.NewRouter().StrictSlash(true)
+	initServer(conf, router, service)
+	return &Scheduler{
+		Config:     conf,
+		Router:     router,
+		Supervisor: supervisor,
+		Service:    service,
+		Connectors: connectors,
+		Retrievers: retrievers,
+		Monitor:    monitor,
 	}
 }
 

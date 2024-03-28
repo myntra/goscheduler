@@ -25,9 +25,7 @@ import (
 	"github.com/myntra/goscheduler/dao"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
-	"gopkg.in/alexcesaro/statsd.v2"
 	"runtime/debug"
-	"strconv"
 	"time"
 )
 
@@ -36,59 +34,12 @@ const BatchSize = 50
 type ScheduleRetriever struct {
 	clusterDao  dao.ClusterDao
 	scheduleDao dao.ScheduleDao
-	monitoring  *p.Monitoring
-}
-
-// prefix for getBulkStatus update
-func (s ScheduleRetriever) getEnrichSchedulePrefix(appId string, partitionId int) string {
-	return "scheduleRetriever" + constants.DOT + "enrichSchedule" + constants.DOT + appId + constants.DOT + strconv.Itoa(partitionId)
-}
-
-// Record enrich schedule in bulk success
-func (s ScheduleRetriever) recordEnrichSchedulesSuccess(prefix string) {
-	if s.monitoring != nil && s.monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Success
-		s.monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record enrich schedule in bulk failure
-func (s ScheduleRetriever) recordEnrichScheduleFailure(prefix string) {
-	if s.monitoring != nil && s.monitoring.StatsDClient != nil {
-		bucket := prefix + constants.DOT + constants.Fail
-		s.monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record statsD metrics for the execution of do()
-// log error messages in case of failures
-func (s ScheduleRetriever) recordAndLog(do func() ([]store.Schedule, error), bucket string) ([]store.Schedule, error) {
-	var timing statsd.Timing
-
-	if s.monitoring != nil && s.monitoring.StatsDClient != nil {
-		timing = s.monitoring.StatsDClient.NewTiming()
-	}
-
-	schedules, err := do()
-
-	if s.monitoring != nil && s.monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		s.monitoring.StatsDClient.Increment(bucket)
-	}
-
-	if err != nil {
-		s.recordEnrichScheduleFailure(bucket)
-		glog.Errorf("Schedule enrichment failed for bucket: %s with error %s", bucket, err.Error())
-	} else {
-		s.recordEnrichSchedulesSuccess(bucket)
-	}
-	return schedules, err
+	monitor     p.Monitor
 }
 
 func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBucket time.Time) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			s.monitoring.StatsDClient.Increment(constants.Panic + constants.DOT + "ScheduleRetrieverImplCassandra")
 			glog.Errorf("Recovered in ScheduleRetrieverImplCassandra from error %s with stacktrace %s", r, string(debug.Stack()))
 		}
 	}()
@@ -125,7 +76,6 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 func (s ScheduleRetriever) BulkAction(app store.App, partitionId int, scheduleTimeGroup time.Time, status []store.Status, actionType store.ActionType) error {
 	defer func() {
 		if r := recover(); r != nil {
-			s.monitoring.StatsDClient.Increment(constants.Panic + constants.DOT + string(actionType))
 			glog.Errorf("Recovered in %s from error %+v with stacktrace %s", string(actionType), r, string(debug.Stack()))
 		}
 	}()
@@ -202,12 +152,10 @@ func (s ScheduleRetriever) actionIfRequired(app store.App, schedules []store.Sch
 		return nil
 	}
 
-	enrichedSchedules, err := s.recordAndLog(
-		func() ([]store.Schedule, error) { return s.scheduleDao.OptimizedEnrichSchedule(schedules) },
-		s.getEnrichSchedulePrefix(schedules[0].AppId, schedules[0].PartitionId))
-
+	enrichedSchedules, err := s.scheduleDao.OptimizedEnrichSchedule(schedules)
 	// we already logged the error, so no need to log it
 	if err != nil {
+		glog.Errorf("Schedule enrichment failed for appId: %s, partitionId: %d with error %s", schedules[0].AppId, schedules[0].PartitionId, err.Error())
 		return err
 	}
 

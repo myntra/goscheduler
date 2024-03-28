@@ -29,34 +29,18 @@ import (
 	"net/http"
 )
 
-// Record get schedule success in StatsD
-func (s *Service) recordGetSuccess(schedule sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := prefix(schedule, Get) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record get schedule failure in StatsD
-func (s *Service) recordGetFail() {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		bucket := constants.GetSchedule + constants.DOT + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 func (s *Service) Get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	uuid := vars["scheduleId"]
 
 	schedule, err := s.GetSchedule(uuid)
 	if err != nil {
-		s.recordGetFail()
+		s.recordRequestStatus(constants.GetSchedule, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
 		return
 	}
 
-	s.recordGetSuccess(schedule)
+	s.recordRequestStatus(constants.GetSchedule, constants.Success)
 
 	status := Status{
 		StatusCode:    constants.SuccessCode200,
@@ -80,7 +64,7 @@ func (s *Service) GetSchedule(uuid string) (sch.Schedule, error) {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedule, err := s.scheduleDao.GetEnrichedSchedule(scheduleId); err {
+	switch schedule, err := s.ScheduleDao.GetEnrichedSchedule(scheduleId); err {
 	case gocql.ErrNotFound:
 		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
 	case nil:

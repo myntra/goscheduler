@@ -36,7 +36,7 @@ import (
 type PollerFactory struct {
 	Retrievers r.Retrievers
 	Config     conf.PollerConfig
-	Monitoring *p.Monitoring
+	Monitor    p.Monitor
 }
 
 func (p PollerFactory) CreateEntity(pollerId string) cluster_entity.Entity {
@@ -58,7 +58,7 @@ func (p PollerFactory) CreateEntity(pollerId string) cluster_entity.Entity {
 		PartitionId:           id,
 		scheduleRetrievalImpl: scheduleRetrievalImpl,
 		config:                p.Config,
-		monitoring:            p.Monitoring,
+		monitor:               p.Monitor,
 	}
 }
 
@@ -66,10 +66,10 @@ func (p PollerFactory) GetEntityRetriever(appName string) riface.Retriever {
 	return p.Retrievers.Get(appName)
 }
 
-func NewPollerFactory(retriever r.Retrievers, config conf.PollerConfig, monitoring *p.Monitoring) PollerFactory {
+func NewPollerFactory(retriever r.Retrievers, config conf.PollerConfig, monitor p.Monitor) PollerFactory {
 	return PollerFactory{
 		Retrievers: retriever,
 		Config:     config,
-		Monitoring: monitoring,
+		Monitor:    monitor,
 	}
 }
