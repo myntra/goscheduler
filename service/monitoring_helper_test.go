@@ -25,7 +25,7 @@ import (
 	"testing"
 )
 
-func TestPrefix(t *testing.T) {
+func TestService_prefix(t *testing.T) {
 	tests := []struct {
 		schedule   s.Schedule
 		actionType action

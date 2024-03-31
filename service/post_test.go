@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-func TestPost(t *testing.T) {
+func TestService_Post(t *testing.T) {
 	service := setupMocks()
 
 	for _, test := range []struct {

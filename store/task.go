@@ -37,7 +37,7 @@ var (
 	AggregationTaskQueue chan ScheduleWrapper
 	// StatusTaskQueue Channel updates the status of schedules after callback is fired
 	StatusTaskQueue chan StatusTask
-	// BulkActionQueue Channel
+	// BulkActionQueue Channel used to perform actions in bulk (Ex. Reconcile/Delete etc)
 	BulkActionQueue chan BulkActionTask
 )
 

@@ -440,8 +440,9 @@ func validatePayloadSize(payload string, app App, maxPayload int) string {
 	}
 
 	if len(payload) > maxPayloadSize {
-		glog.Errorf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d ", app.AppId, maxPayloadSize, len(payload))
-		return fmt.Sprintf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d", app.AppId, maxPayloadSize, len(payload))
+		errMsg := fmt.Sprintf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d", app.AppId, maxPayloadSize, len(payload))
+		glog.Errorf(errMsg)
+		return errMsg
 	}
 
 	return ""

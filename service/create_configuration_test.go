@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestCreateConfiguration(t *testing.T) {
+func TestService_CreateConfiguration(t *testing.T) {
 	service := setupMocks()
 	for _, test := range []struct {
 		App    string
