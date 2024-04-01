@@ -35,13 +35,12 @@ type Poller struct {
 	scheduleRetrievalImpl r.Retriever
 	ticker                *time.Ticker
 	config                conf.PollerConfig
-	monitoring            *p.Monitoring
+	monitor               p.Monitor
 }
 
-func (p *Poller) recordPollerLifeCycle(poller *Poller, lifeCycleMethod string) {
-	if p.monitoring != nil && p.monitoring.StatsDClient != nil {
-		bucket := lifeCycleMethod + constants.DOT + poller.AppName + constants.DOT + strconv.Itoa(poller.PartitionId)
-		p.monitoring.StatsDClient.Increment(bucket)
+func (p *Poller) recordPollerLifeCycle(lifeCycleMethod string) {
+	if p.monitor != nil {
+		p.monitor.IncCounter(constants.PollerLifeCycle, map[string]string{"lifeCycleMethod": lifeCycleMethod, "appId": p.AppName, "partitionId": strconv.Itoa(p.PartitionId)}, 1)
 	}
 }
 
@@ -55,16 +54,16 @@ func (p *Poller) Init() error {
 }
 
 func (p *Poller) Start() {
-	p.recordPollerLifeCycle(p, constants.Start)
+	p.recordPollerLifeCycle(constants.Start)
 	for currentTime := range p.ticker.C {
-		p.recordPollerLifeCycle(p, constants.Running)
+		p.recordPollerLifeCycle(constants.Running)
 		timeBucket := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), 0, 0, currentTime.Location())
 		go p.scheduleRetrievalImpl.GetSchedules(p.AppName, p.PartitionId, timeBucket)
 	}
 }
 
 func (p *Poller) Stop() {
-	p.recordPollerLifeCycle(p, constants.Stop)
+	p.recordPollerLifeCycle(constants.Stop)
 	glog.Infof("Stopping poller for %s.%d", p.AppName, p.PartitionId)
 	p.ticker.Stop()
 }

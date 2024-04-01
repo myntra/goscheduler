@@ -40,9 +40,11 @@ type ClusterConfig struct {
 	BootStrapServers []string // List of bootstrap servers for cluster formation
 	JoinSize         int      // Number of nodes required to form a cluster
 	Log              Log      // Logging configuration
-	PageSize         int      // Page size for pagination
-	NumRetry         int      // Number of retries for failed operations
-	ReplicaPoints    int      // Number of replica points for data replication
+
+	//TODO: move it to DB config
+	PageSize      int // Page size for pagination
+	NumRetry      int // Number of retries for failed operations
+	ReplicaPoints int // Number of replica points for data replication
 }
 
 // Log represents the logging configuration, including whether logging is enabled.
@@ -56,7 +58,6 @@ type CassandraConfig struct {
 	Hosts          string            // Comma-separated list of Cassandra hosts
 	Consistency    gocql.Consistency // Consistency level for Cassandra operations
 	DataCenter     string            // Name of the data center to connect to
-	VaultConfig    VaultConfig       // Vault configuration for secure access
 	ConnectionPool ConnectionPool    // Connection pool configuration
 }
 
@@ -152,17 +153,10 @@ type StatusUpdateConfig struct {
 	Routines int // Number of workers updating status of schedules
 }
 
-// VaultConfig represents the configuration options for a Vault instance.
-type VaultConfig struct {
-	Enabled  bool   // Enable/disable fetching credentials from vault
-	Username string // Username of to connect to cassandra
-	Password string // Password to connect to cassandra
-}
-
 // NodeCrashReconcile represents the configuration options for reconciling node crashes.
 type NodeCrashReconcile struct {
-	NeedsReconcile  bool `json:"needsReconcile,omitempty"`
-	ReconcileOffset int  `json:"reconcileOffset,omitempty"`
+	NeedsReconcile  bool
+	ReconcileOffset int
 }
 
 // TODO: Need to take care of maintaining history for delete action
@@ -178,6 +172,31 @@ type MonitoringConfig struct {
 	Statsd *StatsdConfig // Configuration options for Statsd
 }
 
+type AppLevelConfiguration struct {
+	// Requests are rejected if the schedule time is beyond specified FutureScheduleCreationPeriod (in days) from current time
+	FutureScheduleCreationPeriod int
+
+	// Period in days for which schedules are kept in DB after the schedules are fired
+	FiredScheduleRetentionPeriod int
+
+	// Maximum Payload size in bytes allowed
+	PayloadSize int
+
+	// Http Retries for requests
+	HttpRetries int
+
+	// HTTP Timeout in milliseconds for requests
+	HttpTimeout int
+}
+
+type DCConfig struct {
+	// used to prefix appIds
+	Prefix string
+
+	// location of the DC
+	Location string
+}
+
 // GetAddress concatenates host and port strings and returns an address in the
 // format of "host:port".
 func GetAddress(host string, port string) string {
@@ -189,6 +208,7 @@ func GetAddress(host string, port string) string {
 type Configuration struct {
 	HttpPort                 string                   // Port for the HTTP server
 	ConfigFile               string                   `json:"-"` // Configuration file path
+	SchemaPath               string                   // Configuration options for Cassandra Schema path
 	Cluster                  ClusterConfig            // Configuration options for the cluster
 	ClusterDB                ClusterDBConfig          // Configuration options for the cluster database
 	ScheduleDB               ScheduleDBConfig         // Configuration options for the schedule database
@@ -198,14 +218,16 @@ type Configuration struct {
 	CronConfig               CronConfig               // Configuration options for the cron scheduler
 	StatusUpdateConfig       StatusUpdateConfig       // Configuration options for status updates
 	AggregateSchedulesConfig AggregateSchedulesConfig // Configuration options for schedule aggregation
-	VaultConfig              VaultConfig              // Configuration options for Vault
 	NodeCrashReconcile       NodeCrashReconcile       // Configuration options for node crash reconciliation
 	BulkActionConfig         BulkActionConfig         // Configuration options for bulk actions
+	AppLevelConfiguration    AppLevelConfiguration    // Configuration options for app level configuration
+	DCConfig                 DCConfig                 // Configuration options for DC configuration
 }
 
 var defaultConfig = Configuration{
 	HttpPort:   "8080",
 	ConfigFile: "./conf/conf.json",
+	SchemaPath: "/src/goscheduler/cassandra/cassandra.cql",
 	Cluster: ClusterConfig{
 		ClusterName:      "goscheduler",
 		Address:          "127.0.0.1:9091",
@@ -265,11 +287,6 @@ var defaultConfig = Configuration{
 		BatchSize:   10,
 		FlushPeriod: 60,
 	},
-	VaultConfig: VaultConfig{
-		Enabled:  false,
-		Username: "cassandra",
-		Password: "cassandra",
-	},
 	NodeCrashReconcile: NodeCrashReconcile{
 		NeedsReconcile:  true,
 		ReconcileOffset: 3,
@@ -277,6 +294,17 @@ var defaultConfig = Configuration{
 	BulkActionConfig: BulkActionConfig{
 		BufferSize: 1000,
 		Routines:   10,
+	},
+	AppLevelConfiguration: AppLevelConfiguration{
+		FutureScheduleCreationPeriod: 7,
+		FiredScheduleRetentionPeriod: 1,
+		PayloadSize:                  1024,
+		HttpRetries:                  1,
+		HttpTimeout:                  1000,
+	},
+	DCConfig: DCConfig{
+		Prefix:   "",
+		Location: "Local",
 	},
 }
 
@@ -291,6 +319,12 @@ func WithHTTPPort(port string) Option {
 func WithConfigFile(configFile string) Option {
 	return func(c *Configuration) {
 		c.ConfigFile = configFile
+	}
+}
+
+func WithSchemaPath(schemaPath string) Option {
+	return func(c *Configuration) {
+		c.SchemaPath = schemaPath
 	}
 }
 
@@ -354,12 +388,6 @@ func WithAggregateSchedulesConfig(aggregateSchedulesConfig AggregateSchedulesCon
 	}
 }
 
-func WithVaultConfig(vaultConfig VaultConfig) Option {
-	return func(c *Configuration) {
-		c.VaultConfig = vaultConfig
-	}
-}
-
 func WithNodeCrashReconcileConfig(reconcile NodeCrashReconcile) Option {
 	return func(c *Configuration) {
 		c.NodeCrashReconcile = reconcile
@@ -372,6 +400,18 @@ func WithBulkActionConfig(bulkActionConfig BulkActionConfig) Option {
 	}
 }
 
+func WithAppLevelConfiguration(appLevelConfiguration AppLevelConfiguration) Option {
+	return func(c *Configuration) {
+		c.AppLevelConfiguration = appLevelConfiguration
+	}
+}
+
+func WithDCConfiguration(dcConfig DCConfig) Option {
+	return func(c *Configuration) {
+		c.DCConfig = dcConfig
+	}
+}
+
 func NewConfig(opts ...Option) *Configuration {
 	config := defaultConfig
 	for _, opt := range opts {
@@ -380,8 +420,8 @@ func NewConfig(opts ...Option) *Configuration {
 	return &config
 }
 
-// parseFlags parses command line flags and returns the values.
-func parseFlags() (string, string, string) {
+// ParseFlags parses command line flags and returns the values.
+func ParseFlags() (string, string, string) {
 	var port string
 	var host string
 	var confFile string
@@ -392,7 +432,7 @@ func parseFlags() (string, string, string) {
 	flag.StringVar(&host, "h", "127.0.0.1", "goscheduler server host")
 	flag.Parse()
 
-	return confFile, port, host
+	return confFile, port, host + ":" + port
 }
 
 // getHttpPortFromEnv retrieves the HTTP port from the environment variable.
@@ -407,17 +447,14 @@ func getHttpPortFromEnv() string {
 // InitConfig initializes the configuration by setting default values,
 // parsing command line flags, and loading the configuration from the
 // specified file. It returns a pointer to a Configuration struct.
-func InitConfig() *Configuration {
-	confFile, port, host := parseFlags()
+func InitConfig(confFile, port, address string) *Configuration {
 	httpPort := getHttpPortFromEnv()
-	_ = flag.Set("stderrthreshold", "INFO")
-
 	config := LoadConfig(confFile)
 
 	//override values if provided as arguments
 	config.HttpPort = httpPort
 	config.Cluster.TChannelPort = port
-	config.Cluster.Address = GetAddress(host, port)
+	config.Cluster.Address = address
 
 	return config
 }

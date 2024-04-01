@@ -28,19 +28,23 @@ type Task struct {
 }
 
 var (
-	HttpTaskQueue chan ScheduleWrapper
-	// Channel sends the tasks to convert a recurring schedule to one time schedules
+	OldHttpTaskQueue chan ScheduleWrapper
+	HttpTaskQueue    chan ScheduleWrapper
+	AirbusTaskQueue  chan ScheduleWrapper
+	// CronTaskQueue Channel sends the tasks to convert a recurring schedule to one time schedules
 	CronTaskQueue chan CreateScheduleTask
-	// Channel aggregates the schedules and forward to status update
+	// AggregationTaskQueue Channel aggregates the schedules and forward to status update
 	AggregationTaskQueue chan ScheduleWrapper
-	// Channel updates the status of schedules after callback is fired
+	// StatusTaskQueue Channel updates the status of schedules after callback is fired
 	StatusTaskQueue chan StatusTask
-	// Channel
+	// BulkActionQueue Channel used to perform actions in bulk (Ex. Reconcile/Delete etc)
 	BulkActionQueue chan BulkActionTask
 )
 
 func (t *Task) InitTaskQueues() {
+	OldHttpTaskQueue = make(chan ScheduleWrapper)
 	HttpTaskQueue = make(chan ScheduleWrapper)
+	AirbusTaskQueue = make(chan ScheduleWrapper)
 	CronTaskQueue = make(chan CreateScheduleTask)
 	//making the channel buffered in order to regulate the flow in a better way
 	AggregationTaskQueue = make(chan ScheduleWrapper, t.Conf.AggregateSchedulesConfig.BufferSize)

@@ -27,11 +27,11 @@ import (
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/store"
 	"github.com/myntra/goscheduler/util"
-	"gopkg.in/alexcesaro/statsd.v2"
 	"net/http"
 	"net/http/httputil"
 	"runtime/debug"
 	"strconv"
+	"time"
 )
 
 // trim trims message to max number of characters
@@ -41,11 +41,6 @@ func trim(message string) string {
 	} else {
 		return message[:200]
 	}
-}
-
-// getKey generates a key string based on the appId and partitionId
-func getKey(appId string, partitionId int) string {
-	return constants.HttpCallback + constants.DOT + appId + constants.DOT + strconv.Itoa(partitionId)
 }
 
 // shouldRetry checks if the request should be retried based on maxAttempts, attempts, and response
@@ -124,38 +119,21 @@ func handleResponseDump(input store.Schedule, response *http.Response, attempts 
 	}
 }
 
-func (c *Connector) recordHttpCallbackRetry(appId string, partitionId int) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		key := constants.HttpRetry + constants.DOT + appId + constants.DOT + strconv.Itoa(partitionId)
-		c.Monitoring.StatsDClient.Increment(key)
+func (c *Connector) recordHTTPCallback(appId string, partitionId int, status string) {
+	if c.Monitor != nil {
+		c.Monitor.IncCounter(constants.CallbackStatusCount, map[string]string{"appId": appId, "partitionId": strconv.Itoa(partitionId), "status": status}, 1)
 	}
 }
 
-func (c *Connector) recordHTTPCallbackSuccess(appId string, partitionId int) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		key := getKey(appId, partitionId) + constants.DOT + constants.Success
-		c.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (c *Connector) recordHTTPCallbackFailure(appId string, partitionId int) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		key := getKey(appId, partitionId) + constants.DOT + constants.Fail
-		c.Monitoring.StatsDClient.Increment(key)
-	}
-}
-
-func (c *Connector) recordTiming(do func() (*http.Response, error), bucket string) (*http.Response, error) {
-	var timing statsd.Timing
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		timing = c.Monitoring.StatsDClient.NewTiming()
-	}
+func (c *Connector) recordTiming(do func() (*http.Response, error), appId string, partitionId int) (*http.Response, error) {
+	startTime := time.Now()
 
 	response, err := do()
 
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		timing.Send(bucket)
-		c.Monitoring.StatsDClient.Increment(bucket)
+	// Record timing
+	if c.Monitor != nil {
+		duration := time.Since(startTime)
+		c.Monitor.RecordTiming(constants.CallbackDuration, map[string]string{"appId": appId, "partitionId": strconv.Itoa(partitionId)}, duration)
 	}
 
 	return response, err
@@ -168,10 +146,9 @@ func (c *Connector) processSchedule(scheduleWrapper store.ScheduleWrapper) {
 	isReconciliation := scheduleWrapper.IsReconciliation
 
 	glog.Infof("Callback fired for schedule with schedule id %s and schedule entity %+v", result.ScheduleId.String(), result)
-	key := constants.HttpCallback + constants.DOT + result.AppId + constants.DOT + strconv.Itoa(result.PartitionId)
 	response, err := c.recordTiming(func() (response *http.Response, err error) {
 		return c.retryPost(result, app)
-	}, key)
+	}, result.AppId, result.PartitionId)
 
 	c.handleCallbackResult(response, err, result, app, isReconciliation)
 }
@@ -179,19 +156,19 @@ func (c *Connector) processSchedule(scheduleWrapper store.ScheduleWrapper) {
 // handleCallbackResult processes the result of a callback, updating the schedule status and sending the updated ScheduleWrapper to the AggregationTaskQueue
 func (c *Connector) handleCallbackResult(response *http.Response, err error, result store.Schedule, app store.App, isReconciliation bool) {
 	if err != nil {
-		c.recordHTTPCallbackFailure(result.AppId, result.PartitionId)
+		c.recordHTTPCallback(result.AppId, result.PartitionId, constants.Fail)
 		glog.Errorf("Callback failed for schedule id %s with error %s", result.ScheduleId.String(), err.Error())
 
 		result.Status = store.Failure
 		result.ErrorMessage = trim(err.Error())
 	} else if !isSuccess(response) {
-		c.recordHTTPCallbackFailure(result.AppId, result.PartitionId)
+		c.recordHTTPCallback(result.AppId, result.PartitionId, constants.Fail)
 		glog.Errorf("Callback failed for schedule id %s with response %+v", result.ScheduleId.String(), response)
 
 		result.Status = store.Failure
 		result.ErrorMessage = trim(response.Status)
 	} else {
-		c.recordHTTPCallbackSuccess(result.AppId, result.PartitionId)
+		c.recordHTTPCallback(result.AppId, result.PartitionId, constants.Success)
 		glog.Infof("Callback success for schedule id %s with response %+v", result.ScheduleId.String(), response)
 
 		result.Status = store.Success
@@ -219,7 +196,6 @@ func (c *Connector) listen(buf chan store.ScheduleWrapper) {
 func (c *Connector) retryPost(input store.Schedule, app store.App) (*http.Response, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			c.Monitoring.StatsDClient.Increment(constants.Panic + constants.DOT + "RetryPost")
 			glog.Errorf("Recovered in RetryPost from error %s with stacktrace %s", r, string(debug.Stack()))
 		}
 	}()
@@ -229,9 +205,9 @@ func (c *Connector) retryPost(input store.Schedule, app store.App) (*http.Respon
 
 	for {
 		attempts++
-		glog.Infof("\nPOSTING SCHEDULE %s , ATTEMPT %d ", input.ScheduleId, attempts)
+		glog.Infof("POSTING SCHEDULE %s\nATTEMPT %d ", input.ScheduleId, attempts)
 		url := input.Callback.(*store.HttpCallback).Details.Url
-		fmt.Println("\nURL:>", url)
+		glog.Infof("URL: %s", url)
 
 		req, err := createRequest(input)
 		if err != nil {
@@ -243,7 +219,7 @@ func (c *Connector) retryPost(input store.Schedule, app store.App) (*http.Respon
 
 		retry := shouldRetry(maxAttempts, attempts, response)
 		if retry {
-			c.recordHttpCallbackRetry(input.AppId, input.PartitionId)
+			c.recordHTTPCallback(input.AppId, input.PartitionId, constants.Retry)
 		} else {
 			return response, err
 		}

@@ -158,32 +158,6 @@ func parseDates(startTime string, endTime string) (dao.Range, error) {
 	return timeRange, nil
 }
 
-// Record get app schedules success in StatsD
-func (s *Service) recordGetAppSchedulesSuccess(schedules []sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		schedule := sch.Schedule{}
-		if len(schedules) > 0 {
-			schedule = schedules[0]
-		}
-
-		bucket := prefix(schedule, GetAppSchedule) + Success
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-// Record get app schedules failure in StatsD
-func (s *Service) recordGetAppSchedulesFail(schedules []sch.Schedule) {
-	if s.Monitoring != nil && s.Monitoring.StatsDClient != nil {
-		schedule := sch.Schedule{}
-		if len(schedules) > 0 {
-			schedule = schedules[0]
-		}
-
-		bucket := prefix(schedule, GetAppSchedule) + Fail
-		s.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
 // get all the schedules of an app based on time range and status
 func (s *Service) GetAppSchedules(w http.ResponseWriter, r *http.Request) {
 	var errs []string
@@ -206,12 +180,12 @@ func (s *Service) GetAppSchedules(w http.ResponseWriter, r *http.Request) {
 	} else {
 		schedules, pageState, continuationStartTime, err := s.FetchAppSchedules(appId, timeRange, size, status, pageState, continuationStartTime)
 		if err != nil {
-			s.recordGetAppSchedulesFail(schedules)
+			s.recordRequestAppStatus(constants.GetAppSchedule, appId, constants.Fail)
 			er.Handle(w, r, err.(er.AppError))
 			return
 		}
 
-		s.recordGetAppSchedulesSuccess(schedules)
+		s.recordRequestAppStatus(constants.GetAppSchedule, appId, constants.Success)
 		status := Status{
 			StatusCode:    constants.SuccessCode200,
 			StatusMessage: constants.Success,
@@ -241,7 +215,7 @@ func (s *Service) FetchAppSchedules(appId string, timeRange dao.Range, size int6
 		return []sch.Schedule{}, nil, time.Now(), err
 	}
 
-	schedules, pageState, continuationStartTime, err := s.scheduleDao.GetPaginatedSchedules(appId, int(app.Partitions), timeRange, size, status, pageState, continuationStartTime)
+	schedules, pageState, continuationStartTime, err := s.ScheduleDao.GetPaginatedSchedules(appId, int(app.Partitions), timeRange, size, status, pageState, continuationStartTime)
 	if err != nil {
 		return []sch.Schedule{}, nil, time.Now(), er.NewError(er.DataFetchFailure, err)
 	}
@@ -250,7 +224,7 @@ func (s *Service) FetchAppSchedules(appId string, timeRange dao.Range, size int6
 }
 
 func (s *Service) getActiveOrInactiveApp(appId string) (sch.App, error) {
-	app, err := s.clusterDao.GetApp(appId)
+	app, err := s.ClusterDao.GetApp(appId)
 	switch {
 	case err == gocql.ErrNotFound:
 		return sch.App{}, er.NewError(er.InvalidAppId, errors.New(fmt.Sprintf("app id %s is not registered", appId)))

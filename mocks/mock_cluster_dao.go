@@ -5,10 +5,11 @@
 package mocks
 
 import (
-	clusterentity "github.com/myntra/goscheduler/cluster_entity"
-	store "github.com/myntra/goscheduler/store"
 	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
+	cluster_entity "github.com/myntra/goscheduler/cluster_entity"
+	store "github.com/myntra/goscheduler/store"
 )
 
 // MockClusterDao is a mock of ClusterDao interface.
@@ -34,8 +35,23 @@ func (m *MockClusterDao) EXPECT() *MockClusterDaoMockRecorder {
 	return m.recorder
 }
 
+// CreateConfigurations mocks base method.
+func (m *MockClusterDao) CreateConfigurations(appId string, configuration store.Configuration) (store.Configuration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateConfigurations", appId, configuration)
+	ret0, _ := ret[0].(store.Configuration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateConfigurations indicates an expected call of CreateConfigurations.
+func (mr *MockClusterDaoMockRecorder) CreateConfigurations(appId, configuration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateConfigurations", reflect.TypeOf((*MockClusterDao)(nil).CreateConfigurations), appId, configuration)
+}
+
 // CreateEntity mocks base method.
-func (m *MockClusterDao) CreateEntity(info clusterentity.EntityInfo) error {
+func (m *MockClusterDao) CreateEntity(info cluster_entity.EntityInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateEntity", info)
 	ret0, _ := ret[0].(error)
@@ -48,11 +64,26 @@ func (mr *MockClusterDaoMockRecorder) CreateEntity(info interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEntity", reflect.TypeOf((*MockClusterDao)(nil).CreateEntity), info)
 }
 
+// DeleteConfiguration mocks base method.
+func (m *MockClusterDao) DeleteConfiguration(appId string) (store.Configuration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteConfiguration", appId)
+	ret0, _ := ret[0].(store.Configuration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteConfiguration indicates an expected call of DeleteConfiguration.
+func (mr *MockClusterDaoMockRecorder) DeleteConfiguration(appId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteConfiguration", reflect.TypeOf((*MockClusterDao)(nil).DeleteConfiguration), appId)
+}
+
 // GetAllEntitiesInfo mocks base method.
-func (m *MockClusterDao) GetAllEntitiesInfo() []clusterentity.EntityInfo {
+func (m *MockClusterDao) GetAllEntitiesInfo() []cluster_entity.EntityInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllEntitiesInfo")
-	ret0, _ := ret[0].([]clusterentity.EntityInfo)
+	ret0, _ := ret[0].([]cluster_entity.EntityInfo)
 	return ret0
 }
 
@@ -63,10 +94,10 @@ func (mr *MockClusterDaoMockRecorder) GetAllEntitiesInfo() *gomock.Call {
 }
 
 // GetAllEntitiesInfoOfNode mocks base method.
-func (m *MockClusterDao) GetAllEntitiesInfoOfNode(nodeName string) []clusterentity.EntityInfo {
+func (m *MockClusterDao) GetAllEntitiesInfoOfNode(nodeName string) []cluster_entity.EntityInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllEntitiesInfoOfNode", nodeName)
-	ret0, _ := ret[0].([]clusterentity.EntityInfo)
+	ret0, _ := ret[0].([]cluster_entity.EntityInfo)
 	return ret0
 }
 
@@ -106,11 +137,41 @@ func (mr *MockClusterDaoMockRecorder) GetApps(appId interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApps", reflect.TypeOf((*MockClusterDao)(nil).GetApps), appId)
 }
 
+// GetConfiguration mocks base method.
+func (m *MockClusterDao) GetConfiguration(appId string) (store.Configuration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfiguration", appId)
+	ret0, _ := ret[0].(store.Configuration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfiguration indicates an expected call of GetConfiguration.
+func (mr *MockClusterDaoMockRecorder) GetConfiguration(appId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockClusterDao)(nil).GetConfiguration), appId)
+}
+
+// GetDCAwareApp mocks base method.
+func (m *MockClusterDao) GetDCAwareApp(appName string) (store.App, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDCAwareApp", appName)
+	ret0, _ := ret[0].(store.App)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDCAwareApp indicates an expected call of GetDCAwareApp.
+func (mr *MockClusterDaoMockRecorder) GetDCAwareApp(appName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDCAwareApp", reflect.TypeOf((*MockClusterDao)(nil).GetDCAwareApp), appName)
+}
+
 // GetEntityInfo mocks base method.
-func (m *MockClusterDao) GetEntityInfo(id string) clusterentity.EntityInfo {
+func (m *MockClusterDao) GetEntityInfo(id string) cluster_entity.EntityInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEntityInfo", id)
-	ret0, _ := ret[0].(clusterentity.EntityInfo)
+	ret0, _ := ret[0].(cluster_entity.EntityInfo)
 	return ret0
 }
 
@@ -158,6 +219,21 @@ func (m *MockClusterDao) UpdateAppActiveStatus(appName string, activeStatus bool
 func (mr *MockClusterDaoMockRecorder) UpdateAppActiveStatus(appName, activeStatus interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAppActiveStatus", reflect.TypeOf((*MockClusterDao)(nil).UpdateAppActiveStatus), appName, activeStatus)
+}
+
+// UpdateConfiguration mocks base method.
+func (m *MockClusterDao) UpdateConfiguration(appId string, configuration store.Configuration) (store.Configuration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateConfiguration", appId, configuration)
+	ret0, _ := ret[0].(store.Configuration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateConfiguration indicates an expected call of UpdateConfiguration.
+func (mr *MockClusterDaoMockRecorder) UpdateConfiguration(appId, configuration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateConfiguration", reflect.TypeOf((*MockClusterDao)(nil).UpdateConfiguration), appId, configuration)
 }
 
 // UpdateEntityStatus mocks base method.

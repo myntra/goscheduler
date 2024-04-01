@@ -81,20 +81,6 @@ func withPool(cluster *gocql.ClusterConfig, config conf.CassandraConfig) *gocql.
 	return cluster
 }
 
-// withAuthenticator sets the password authenticator for the given cluster
-// configuration to use the username and password specified in the Vault
-// configuration, if Vault is enabled. This allows the Cassandra client to
-// authenticate with the Cassandra cluster using credentials stored in Vault.
-func withAuthenticator(cluster *gocql.ClusterConfig, config conf.CassandraConfig) *gocql.ClusterConfig {
-	if config.VaultConfig.Enabled {
-		cluster.Authenticator = gocql.PasswordAuthenticator{
-			Username: config.VaultConfig.Username,
-			Password: config.VaultConfig.Password,
-		}
-	}
-	return cluster
-}
-
 // Deprecated: This function is used to get a Cassandra gocql.Session.
 // In order to get the ability to mock methods we are using GetSessionInterface which provides wrapper over gocql.Session
 func GetSession(cassandraConfig conf.CassandraConfig, keyspace string) (*gocql.Session, error) {
@@ -109,7 +95,6 @@ func GetSession(cassandraConfig conf.CassandraConfig, keyspace string) (*gocql.S
 	cluster.NumConns = cassandraConfig.ConnectionPool.MaxNumConnections
 
 	withPool(cluster, cassandraConfig)
-	withAuthenticator(cluster, cassandraConfig)
 
 	session, err := cluster.CreateSession()
 
@@ -138,7 +123,6 @@ func GetSessionInterface(cassandraConfig conf.CassandraConfig, keyspace string) 
 	cluster.ConnectTimeout = time.Duration(cassandraConfig.ConnectionPool.ConnectTimeout) * time.Millisecond
 	cluster.NumConns = cassandraConfig.ConnectionPool.MaxNumConnections
 	withPool(cluster, cassandraConfig)
-	withAuthenticator(cluster, cassandraConfig)
 
 	session, err := cluster.CreateSession()
 	if err != nil {

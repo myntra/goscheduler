@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestService_parse(t *testing.T) {
 	request := http.Request{
 		URL: &url.URL{
 			RawQuery: "",
@@ -86,7 +86,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseDate(t *testing.T) {
+func TestService_parseDate(t *testing.T) {
 	//check valid cases
 	for _, test := range []struct {
 		Input    string

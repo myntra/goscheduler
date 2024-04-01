@@ -20,6 +20,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/scheduler"
@@ -27,9 +28,12 @@ import (
 )
 
 func main() {
-	fmt.Println("Welcome to goscheduler [Myntra Scheduler Service].")
+	fmt.Println("Welcome to Goscheduler.")
 	//Load all the configs
-	config := conf.InitConfig()
+	confFile, port, host := conf.ParseFlags()
+	_ = flag.Set("stderrthreshold", "INFO")
+
+	config := conf.InitConfig(confFile, port, host)
 	s := scheduler.New(config, map[string]store.Factory{})
 	s.Supervisor.WaitForTermination()
 }

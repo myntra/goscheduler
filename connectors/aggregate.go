@@ -21,34 +21,11 @@ package connectors
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/store"
 )
-
-// prefix for aggregate channel
-func channelPrefix() string {
-	return "connectors" + constants.DOT + "aggregate"
-}
-
-// record aggregate channel length
-func (c *Connector) recordChannelLength(length int) {
-	if c.Monitoring != nil && c.Monitoring.StatsDClient != nil {
-		bucket := channelPrefix() + constants.DOT + "length" + constants.DOT + strconv.Itoa(length)
-		c.Monitoring.StatsDClient.Increment(bucket)
-	}
-}
-
-func (c *Connector) recordAndLogIfRequired(length int) {
-	if length > 0 {
-		c.recordChannelLength(length)
-		glog.Infof("Aggregate channel length recorded %d", length)
-	}
-}
 
 // aggregate schedules based on appId, partitionId
 // forward messages to status update channel once batch is full

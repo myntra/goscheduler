@@ -31,9 +31,9 @@ import (
 
 func TestService_Runs(t *testing.T) {
 	service := &Service{
-		supervisor:  new(cluster.DummySupervisor),
-		clusterDao:  new(dao.DummyClusterDaoImpl),
-		scheduleDao: new(dao.DummyScheduleDaoImpl),
+		Supervisor:  new(cluster.DummySupervisor),
+		ClusterDao:  new(dao.DummyClusterDaoImpl),
+		ScheduleDao: new(dao.DummyScheduleDaoImpl),
 	}
 
 	for _, test := range []struct {

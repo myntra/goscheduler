@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
+	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/cron"
 	"github.com/myntra/goscheduler/util"
@@ -66,6 +67,23 @@ type Schedule struct {
 	ErrorMessage          string                  `json:"errorMessage,omitempty"`
 	ParentScheduleId      gocql.UUID              `json:"-"`
 	ReconciliationHistory []ReconciliationHistory `json:"reconciliationHistory,omitempty"`
+	//Deprecated
+	Ttl int `json:"-"`
+	//Deprecated
+	AirbusCallback AirbusCallback `json:"airbusCallback,omitempty"`
+	//Deprecated
+	HttpCallback HTTPCallback `json:"httpCallback,omitempty"`
+}
+
+type AirbusCallback struct {
+	EventName string            `json:"eventName,omitempty"`
+	AppName   string            `json:"appName,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
+}
+
+type HTTPCallback struct {
+	Url     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type ReconciliationHistory struct {
@@ -123,6 +141,19 @@ func (s *Schedule) CreateScheduleFromCassandraMap(m map[string]interface{}) erro
 		return err
 	}
 	s.Callback = callback
+
+	// Deprecated
+	if httpCallback, ok := s.Callback.(*HTTPCallback); ok {
+		s.HttpCallback = HTTPCallback{
+			Url:     httpCallback.Url,
+			Headers: httpCallback.Headers,
+		}
+	} else if airbusCallback, ok := s.Callback.(*AirbusCallback); ok {
+		s.AirbusCallback = AirbusCallback{
+			EventName: airbusCallback.EventName,
+			Headers:   airbusCallback.Headers,
+		}
+	}
 
 	// Get callbackRaw from map
 	raw, err := convertCallbackToRaw(s)
@@ -194,6 +225,17 @@ func (s Schedule) CloneAsOneTime(at time.Time) Schedule {
 	clone.ScheduleTime = at.Unix()
 	clone.AppId = s.AppId
 	clone.Callback = s.Callback
+	if httpCallback, ok := s.Callback.(*HTTPCallback); ok {
+		clone.HttpCallback = HTTPCallback{
+			Url:     httpCallback.Url,
+			Headers: httpCallback.Headers,
+		}
+	} else if airbusCallback, ok := s.Callback.(*AirbusCallback); ok {
+		clone.AirbusCallback = AirbusCallback{
+			EventName: airbusCallback.EventName,
+			Headers:   airbusCallback.Headers,
+		}
+	}
 	clone.Payload = s.Payload
 	clone.ParentScheduleId = s.ScheduleId
 
@@ -211,8 +253,8 @@ func (s Schedule) CheckUntriggeredCallback(flushPeriod int) bool {
 
 // GetTTL TTL will be set at schedule level
 // ttl = scheduleTime - now
-func (s Schedule) GetTTL() int {
-	return int(s.ScheduleTime - time.Now().Unix())
+func (s Schedule) GetTTL(app App, bufferTTL int) int {
+	return int(s.ScheduleTime-time.Now().Unix()) + app.GetBufferTTL(bufferTTL)
 }
 
 // Set status, error_msg and reconciliation_history of the schedule from map
@@ -268,40 +310,57 @@ func (s *Schedule) UpdateReconciliationHistory(status Status, errMsg string) {
 }
 
 func (s *Schedule) UnmarshalJSON(data []byte) error {
+	// Define an auxiliary type to prevent recursive calls to UnmarshalJSON
 	type Alias Schedule
 	aux := &struct {
 		*Alias
+		HttpCallbackData   *HTTPCallback   `json:"httpCallback,omitempty"`
+		AirbusCallbackData *AirbusCallback `json:"airbusCallback,omitempty"`
 	}{
 		Alias: (*Alias)(s),
 	}
+
+	// Unmarshal into the auxiliary struct
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 
-	var callbackData struct {
-		Type string `json:"type"`
+	// Check if CallbackRaw is present and use specific logic
+	if len(s.CallbackRaw) > 0 {
+		var callbackData struct {
+			Type string `json:"type"`
+		}
+
+		if err := json.Unmarshal(s.CallbackRaw, &callbackData); err != nil {
+			return err
+		}
+
+		factoryFunc, ok := Registry[callbackData.Type]
+		if !ok {
+			return fmt.Errorf("unknown callback type: %s", callbackData.Type)
+		}
+
+		callback := factoryFunc()
+		if err := json.Unmarshal(s.CallbackRaw, callback); err != nil {
+			return err
+		}
+
+		s.Callback = callback
+	} else {
+		// Use the HttpCallbackData or AirbusCallbackData
+		if aux.HttpCallbackData != nil {
+			s.HttpCallback = *aux.HttpCallbackData
+		}
+		if aux.AirbusCallbackData != nil {
+			s.AirbusCallback = *aux.AirbusCallbackData
+		}
 	}
 
-	if err := json.Unmarshal(s.CallbackRaw, &callbackData); err != nil {
-		return err
-	}
-
-	factoryFunc, ok := Registry[callbackData.Type]
-	if !ok {
-		return fmt.Errorf("unknown callback type: %s", callbackData.Type)
-	}
-
-	callback := factoryFunc()
-	if err := json.Unmarshal(s.CallbackRaw, callback); err != nil {
-		return err
-	}
-
-	s.Callback = callback
 	return nil
 }
 
-func (s *Schedule) ValidateSchedule() []string {
-	glog.Infof("ValidateSchedule: %+v", s)
+func (s *Schedule) ValidateSchedule(app App, conf conf.AppLevelConfiguration) []string {
+	glog.V(constants.INFO).Infof("ValidateSchedule: %+v", s)
 	var errs []string
 
 	if errStr := validateField(s.AppId, "appId"); errStr != "" {
@@ -309,6 +368,10 @@ func (s *Schedule) ValidateSchedule() []string {
 	}
 
 	if errStr := validateField(s.Payload, "payload"); errStr != "" {
+		errs = append(errs, errStr)
+	}
+
+	if errStr := validatePayloadSize(s.Payload, app, conf.PayloadSize); errStr != "" {
 		errs = append(errs, errStr)
 	}
 
@@ -321,7 +384,7 @@ func (s *Schedule) ValidateSchedule() []string {
 			errs = append(errs, er...)
 		}
 	} else {
-		if errStr := validateScheduleTime(s.ScheduleTime, s.AppId); errStr != "" {
+		if errStr := validateScheduleTime(s.ScheduleTime, app, conf.FutureScheduleCreationPeriod); errStr != "" {
 			errs = append(errs, errStr)
 		}
 	}
@@ -350,14 +413,38 @@ func validateField(fieldData string, field string) string {
 	return ""
 }
 
-func validateScheduleTime(scheduleTime int64, appId string) string {
+func validateScheduleTime(scheduleTime int64, app App, maxTTL int) string {
 	now := time.Now().Unix()
 	if scheduleTime < now {
 		return fmt.Sprintf("schedule time : %d is less than current time: %d for app: %s. Time cannot be in past.",
 			scheduleTime,
 			now,
-			appId)
+			app.AppId)
+	} else if (scheduleTime - now) > int64(app.GetMaxTTL(maxTTL)) {
+		return fmt.Sprintf("schedule time : %d cannot be more than %d days from current time : %d for app: %s",
+			scheduleTime,
+			app.GetMaxTTL(maxTTL)/(24*60*60),
+			now,
+			app.AppId)
 	}
+	return ""
+}
+
+func validatePayloadSize(payload string, app App, maxPayload int) string {
+	var maxPayloadSize int
+
+	if app.Configuration.PayloadSize == 0 {
+		maxPayloadSize = maxPayload
+	} else {
+		maxPayloadSize = app.Configuration.PayloadSize
+	}
+
+	if len(payload) > maxPayloadSize {
+		errMsg := fmt.Sprintf("PayloadSize for app: %s cannot be more than %d bytes, given payloadSize bytes: %d", app.AppId, maxPayloadSize, len(payload))
+		glog.Errorf(errMsg)
+		return errMsg
+	}
+
 	return ""
 }
 
