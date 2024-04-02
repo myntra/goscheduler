@@ -55,7 +55,7 @@ The Scheduler service utilizes Cassandra as the datastore. It stores the followi
 - Client Configuration Metadata: The datastore holds metadata related to client configurations.
 - Poller Instance Statuses and Poller Node Membership: The status and membership information of poller instances are stored in the datastore.
 
-More details on Cassandra can be found [here](Link to Github wiki)
+More details on Cassandra can be found [here](https://github.com/myntra/goscheduler/wiki/Database-Schema)
 
 ## Poller Cluster
 The Poller Cluster in the Scheduler service utilizes the [Uber ringpop-go library](https://github.com/uber/ringpop-go) for its implementation. Ringpop provides application-level sharding, creating a consistent hash ring of available Poller Cluster nodes. The ring ensures that keys are distributed across the ring, with specific parts of the ring owned by individual Poller Cluster nodes.
