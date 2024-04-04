@@ -479,14 +479,13 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 # Contributors
 A big thank you to everyone who has contributed to this project!
-  
+   
 <!-- Use https://contrib.rocks/preview?repo=myntra%2Fgoscheduler-->
 
-<!-- <a href = "https://github.com/Tanu-N-Prabhu/Python/graphs/contributors">
-  <img src = "https://contrib.rocks/image?repo = myntra/goscheduler"/>
+<a href="https://github.com/myntra/goscheduler/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=myntra/goscheduler" />
 </a>
 
-Made with [contributors-img](https://contrib.rocks).
 -->
 
 If you'd like to contribute, please see the [Contributing](CONTRIBUTING.md) guide.
