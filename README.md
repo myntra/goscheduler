@@ -486,6 +486,4 @@ A big thank you to everyone who has contributed to this project!
   <img src="https://contrib.rocks/image?repo=myntra/goscheduler" />
 </a>
 
--->
-
 If you'd like to contribute, please see the [Contributing](CONTRIBUTING.md) guide.
