@@ -45,26 +45,41 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 	}()
 
 	app, err := s.clusterDao.GetApp(appName)
+	if err != nil {
+		return err
+	}
 
-	sch := store.Schedule{}
-	_map := make(map[string]interface{})
-	iter := s.scheduleDao.GetSchedulesForEntity(appName, partitionId, timeBucket, nil)
-	for iter.MapScan(_map) {
-		if err := sch.CreateScheduleFromCassandraMap(_map); err != nil {
-			glog.Infof("Error while forming schedule from cassandra map: %+v, error: %s", _map, err.Error())
+	pageState := []byte(nil)
+
+	for {
+		sch := store.Schedule{}
+		_map := make(map[string]interface{})
+		iter := s.scheduleDao.GetSchedulesForEntity(appName, partitionId, timeBucket, pageState)
+
+		for iter.MapScan(_map) {
+			if err := sch.CreateScheduleFromCassandraMap(_map); err != nil {
+				glog.Infof("Error while forming schedule from cassandra map: %+v, error: %s", _map, err.Error())
+				iter.Close()
+				return err
+			}
+
+			glog.V(constants.INFO).Infof("Got schedule: %+v, pageState: %+v", sch, iter.PageState())
+			sch.Callback.Invoke(store.ScheduleWrapper{Schedule: sch, App: app, IsReconciliation: false})
+
+			_map = make(map[string]interface{})
+			sch = store.Schedule{}
+		}
+
+		pageState = iter.PageState()
+
+		if err = iter.Close(); err != nil {
+			glog.Errorf("Error: %s while fetching schedulers for app: %s, poller: %d, timeStamp: %v", err.Error(), appName, partitionId, timeBucket)
 			return err
 		}
 
-		glog.V(constants.INFO).Infof("Got schedule: %+v, pageState: %+v", sch, iter.PageState())
-		sch.Callback.Invoke(store.ScheduleWrapper{Schedule: sch, App: app, IsReconciliation: false})
-
-		_map = make(map[string]interface{})
-		sch = store.Schedule{}
-	}
-
-	if err = iter.Close(); err != nil {
-		glog.Errorf("Error: %s while fetching schedulers for app: %s, poller: %d, timeStamp: %v", err.Error(), appName, partitionId, timeBucket)
-		return err
+		if len(pageState) == 0 {
+			break
+		}
 	}
 
 	return nil
@@ -80,49 +95,62 @@ func (s ScheduleRetriever) BulkAction(app store.App, partitionId int, scheduleTi
 		}
 	}()
 
-	var pageState []byte = nil
+	pageState := []byte(nil)
 	var batch []store.Schedule
 	var err error
 	counter := 0
-	sch := store.Schedule{}
-	_map := make(map[string]interface{})
 
-	iter := s.scheduleDao.GetSchedulesForEntity(app.AppId, partitionId, scheduleTimeGroup, pageState)
-	for iter.MapScan(_map) {
-		if err := sch.CreateScheduleFromCassandraMap(_map); err != nil {
-			glog.Infof("Error while forming schedule from cassandra map: %+v, error: %s", _map, err.Error())
-			return err
-		}
+	for {
+		sch := store.Schedule{}
+		_map := make(map[string]interface{})
+		iter := s.scheduleDao.GetSchedulesForEntity(app.AppId, partitionId, scheduleTimeGroup, pageState)
 
-		glog.V(constants.INFO).Infof("Got schedule: %+v, pageState: %+v", sch, iter.PageState())
-
-		batch = append(batch, sch)
-		counter++
-
-		if counter == BatchSize {
-			if err := s.actionIfRequired(app, batch, status, actionType); err != nil {
+		for iter.MapScan(_map) {
+			if err := sch.CreateScheduleFromCassandraMap(_map); err != nil {
+				glog.Infof("Error while forming schedule from cassandra map: %+v, error: %s", _map, err.Error())
+				iter.Close()
 				return err
 			}
 
-			counter = 0
-			batch = nil
+			glog.V(constants.INFO).Infof("Got schedule: %+v, pageState: %+v", sch, iter.PageState())
+
+			batch = append(batch, sch)
+			counter++
+
+			if counter == BatchSize {
+				if err := s.actionIfRequired(app, batch, status, actionType); err != nil {
+					return err
+				}
+
+				counter = 0
+				batch = nil
+			}
+
+			_map = make(map[string]interface{})
+			sch = store.Schedule{}
 		}
-		_map = make(map[string]interface{})
-		sch = store.Schedule{}
+
+		pageState = iter.PageState()
+
+		if err = iter.Close(); err != nil {
+			glog.Errorf("Error: %s while making query for app: %s, partitionId: %d, scheduleTimeGroup: %+v",
+				err.Error(),
+				app.AppId,
+				partitionId,
+				scheduleTimeGroup)
+			return err
+		}
+
+		if len(pageState) == 0 {
+			break
+		}
 	}
 
-	if err := s.actionIfRequired(app, batch, status, actionType); err != nil {
-		return err
-	}
-
-	if err = iter.Close(); err != nil {
-		glog.Errorf("Error: %s while making query for app: %s, partitionId: %d, scheduleTimeGroup: %+v",
-			err.Error(),
-			app.AppId,
-			partitionId,
-			scheduleTimeGroup)
-
-		return err
+	// Process remaining batch if any
+	if counter > 0 {
+		if err := s.actionIfRequired(app, batch, status, actionType); err != nil {
+			return err
+		}
 	}
 
 	return nil
