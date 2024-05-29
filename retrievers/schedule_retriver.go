@@ -26,10 +26,12 @@ import (
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
 	"runtime/debug"
+	"strconv"
 	"time"
 )
 
 const BatchSize = 50
+const MaxQueries = 100
 
 type ScheduleRetriever struct {
 	clusterDao  dao.ClusterDao
@@ -38,11 +40,18 @@ type ScheduleRetriever struct {
 }
 
 func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBucket time.Time) (err error) {
-	defer func() {
+	start := time.Now()
+
+	defer func(start time.Time) {
+		if s.monitor != nil {
+			duration := time.Since(start)
+			s.monitor.IncCounter(constants.GetSchedulesByEntity, map[string]string{"appId": appName, "partitionId": strconv.Itoa(partitionId)}, 1)
+			s.monitor.RecordTiming(constants.GetSchedulesByEntityDuration, map[string]string{"appId": appName, "partitionId": strconv.Itoa(partitionId)}, duration)
+		}
 		if r := recover(); r != nil {
 			glog.Errorf("Recovered in ScheduleRetrieverImplCassandra from error %s with stacktrace %s", r, string(debug.Stack()))
 		}
-	}()
+	}(start)
 
 	app, err := s.clusterDao.GetApp(appName)
 	if err != nil {
@@ -50,6 +59,7 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 	}
 
 	pageState := []byte(nil)
+	queryCount := 0
 
 	for {
 		sch := store.Schedule{}
@@ -71,13 +81,21 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 		}
 
 		pageState = iter.PageState()
+		queryCount++
 
 		if err = iter.Close(); err != nil {
-			glog.Errorf("Error: %s while fetching schedulers for app: %s, poller: %d, timeStamp: %v", err.Error(), appName, partitionId, timeBucket)
+			glog.Errorf("Error: %s while fetching schedules for app: %s, partitionId: %d, timeBucket: %v", err.Error(), appName, partitionId, timeBucket)
 			return err
 		}
 
-		if len(pageState) == 0 {
+		if len(pageState) == 0 || queryCount > MaxQueries {
+			if queryCount > MaxQueries && s.monitor != nil {
+				s.monitor.IncCounter(constants.GetSchedulesByEntityMaxQueryCount, map[string]string{
+					"appId":       appName,
+					"partitionId": strconv.Itoa(partitionId),
+				}, 1)
+				glog.Errorf("Query count exceeded for app: %s, partitionId: %d, timeBucket: %v", appName, partitionId, timeBucket)
+			}
 			break
 		}
 	}
@@ -88,6 +106,7 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 // Fetches data from DB for a given appId, partitionId, scheduleTimeGroup in paginated way
 // Enriches the data with status and makes the reconciliation if required
 // Return error if there is any error while querying DB or enriching them with status
+//TODO: Abort the queries with MaxQueries if we find any issues with the query execution
 func (s ScheduleRetriever) BulkAction(app store.App, partitionId int, scheduleTimeGroup time.Time, status []store.Status, actionType store.ActionType) error {
 	defer func() {
 		if r := recover(); r != nil {
