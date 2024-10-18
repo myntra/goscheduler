@@ -23,6 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
+	"time"
+
 	"github.com/gocql/gocql"
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/cassandra"
@@ -31,8 +34,6 @@ import (
 	"github.com/myntra/goscheduler/db_wrapper"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
-	"runtime/debug"
-	"time"
 )
 
 const BatchSize = 50
@@ -875,13 +876,15 @@ func (s *ScheduleDaoImpl) GetSchedulesForEntity(appId string, partitionId int, t
 		"AND partition_id = ? " +
 		"AND schedule_time_group = ?"
 
+	fmt.Printf("Getting schedules from db with Page size : %v", s.Conf.ScheduleDB.DBConfig.PageSize)
+
 	iter := s.Session.Query(
 		query,
 		appId,
 		partitionId,
 		timeBucket).
 		PageState(pageState).
-		PageSize(s.Conf.Cluster.PageSize).
+		PageSize(s.Conf.ScheduleDB.DBConfig.PageSize).
 		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.Cluster.NumRetry}).
 		Iter()
 

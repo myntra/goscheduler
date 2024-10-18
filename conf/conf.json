@@ -20,6 +20,7 @@
   "ClusterDB": {
     "ClusterKeySpace": "cluster",
     "DBConfig": {
+      "PageSize":1000,
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
       "ConnectionPool":{
@@ -34,6 +35,7 @@
     "ScheduleKeySpace": "schedule_management",
     "ScheduleTableName": "schedules",
     "DBConfig": {
+      "PageSize":1500,
       "Hosts": "127.0.0.1",
       "Consistency": "ONE",
       "ConnectionPool":{
@@ -64,7 +66,8 @@
   "Poller": {
     "Interval": 60,
     "BufferSize": 1000,
-    "DefaultCount": 5
+    "DefaultCount": 5,
+    "MaxQueryLimit" : 100
   },
   "HttpConnector": {
     "Routines": 10,

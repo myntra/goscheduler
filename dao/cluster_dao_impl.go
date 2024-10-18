@@ -23,6 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"sync"
+
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 	"github.com/myntra/goscheduler/cassandra"
@@ -32,8 +35,6 @@ import (
 	"github.com/myntra/goscheduler/db_wrapper"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/store"
-	"strconv"
-	"sync"
 )
 
 type AppMap struct {
@@ -180,8 +181,7 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfoOfNode(nodeName string) []e.
 	query := fmt.Sprintf(KeyEntitiesOfNode, nodeName)
 	iter := c.Session.
 		Query(query).
-		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
-		PageSize(c.Conf.Cluster.PageSize).Iter()
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).Iter()
 
 	for iter.Scan(&id, &status) {
 		entities = append(entities, e.EntityInfo{Id: id, Node: nodeName, Status: status})
@@ -208,7 +208,7 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 	iter := c.Session.
 		Query(KeyGetAllEntities).
 		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
-		PageSize(c.Conf.Cluster.PageSize).
+		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
 		Iter()
 
 	for iter.Scan(&id, &nodeName, &status, &history) {

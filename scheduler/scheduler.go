@@ -20,6 +20,8 @@
 package scheduler
 
 import (
+	"os"
+
 	"github.com/gorilla/mux"
 	"github.com/myntra/goscheduler/cassandra"
 	"github.com/myntra/goscheduler/cluster"
@@ -32,7 +34,6 @@ import (
 	"github.com/myntra/goscheduler/server"
 	s "github.com/myntra/goscheduler/service"
 	st "github.com/myntra/goscheduler/store"
-	"os"
 )
 
 // Scheduler is a struct that holds pointers to various components of the scheduler.
@@ -62,7 +63,7 @@ func initDAOs(conf *c.Configuration, monitor m.Monitor) (dao.ClusterDao, dao.Sch
 
 // initRetrievers initializes the retrievers for the schedules and clusters using the configuration provided.
 func initRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor) r.Retrievers {
-	return r.InitRetrievers(&conf.CronConfig, clusterDao, scheduleDao, monitor)
+	return r.InitRetrievers(conf, clusterDao, scheduleDao, monitor)
 }
 
 // initSupervisor creates a new Supervisor object that manages the cluster of nodes running the scheduler.
@@ -139,7 +140,7 @@ func New(conf *c.Configuration, callbackFactories map[string]st.Factory) *Schedu
 	}
 }
 
-//TODO: Reformat this constructor
+// TODO: Reformat this constructor
 // NewScheduler creates a new Scheduler instance with a given params.
 func NewScheduler(conf *c.Configuration, callbackFactories map[string]st.Factory, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor m.Monitor, createSchema bool, callbackWorkers bool) *Scheduler {
 	initCassandra(conf, createSchema)

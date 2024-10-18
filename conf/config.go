@@ -55,6 +55,7 @@ type Log struct {
 // CassandraConfig represents the configuration for connecting to a Cassandra
 // cluster, including hosts, consistency level, data center, and connection pool settings.
 type CassandraConfig struct {
+	PageSize       int
 	Hosts          string            // Comma-separated list of Cassandra hosts
 	Consistency    gocql.Consistency // Consistency level for Cassandra operations
 	DataCenter     string            // Name of the data center to connect to
@@ -80,8 +81,9 @@ type ScheduleDBConfig struct {
 // PollerConfig represents the configuration for a poller, including interval,
 // buffer size, and default count.
 type PollerConfig struct {
-	Interval     int    // Polling interval in seconds
-	DefaultCount uint32 // Default number of items to be polled
+	Interval      int    // Polling interval in seconds
+	DefaultCount  uint32 // Default number of items to be polled
+	MaxQueryLimit int
 }
 
 // ConnectionPool represents the configuration for a connection pool, including
@@ -241,6 +243,7 @@ var defaultConfig = Configuration{
 	ClusterDB: ClusterDBConfig{
 		ClusterKeySpace: "cluster",
 		DBConfig: CassandraConfig{
+			PageSize:    1000,
 			Hosts:       "127.0.0.1",
 			Consistency: gocql.One,
 			DataCenter:  "",
@@ -255,6 +258,7 @@ var defaultConfig = Configuration{
 	ScheduleDB: ScheduleDBConfig{
 		ScheduleKeySpace: "schedule_management",
 		DBConfig: CassandraConfig{
+			PageSize:    1000,
 			Hosts:       "127.0.0.1",
 			Consistency: gocql.One,
 			DataCenter:  "",
@@ -266,8 +270,9 @@ var defaultConfig = Configuration{
 		},
 	},
 	Poller: PollerConfig{
-		Interval:     60,
-		DefaultCount: 5,
+		Interval:      60,
+		DefaultCount:  5,
+		MaxQueryLimit: 4,
 	},
 	MonitoringConfig: MonitoringConfig{Statsd: nil},
 	HttpConnector: HttpConnectorConfig{
