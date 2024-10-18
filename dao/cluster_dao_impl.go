@@ -370,7 +370,7 @@ func (c *ClusterDaoImplCassandra) GetApps(appId string) ([]store.App, error) {
 		return apps, nil
 	}
 
-	iter := c.Session.Query(KeyGelAllApps).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).PageSize(c.Conf.Cluster.PageSize).Iter()
+	iter := c.Session.Query(KeyGelAllApps).Consistency(c.Conf.ClusterDB.DBConfig.Consistency).PageSize(c.Conf.ClusterDB.DBConfig.PageSize).Iter()
 	for iter.Scan(&id, &partitions, &active, &config) {
 		configuration = store.Configuration{}
 		if err := json.Unmarshal([]byte(config), &configuration); err != nil {

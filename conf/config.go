@@ -40,11 +40,7 @@ type ClusterConfig struct {
 	BootStrapServers []string // List of bootstrap servers for cluster formation
 	JoinSize         int      // Number of nodes required to form a cluster
 	Log              Log      // Logging configuration
-
-	//TODO: move it to DB config
-	PageSize      int // Page size for pagination
-	NumRetry      int // Number of retries for failed operations
-	ReplicaPoints int // Number of replica points for data replication
+	ReplicaPoints    int      // Number of replica points for data replication
 }
 
 // Log represents the logging configuration, including whether logging is enabled.
@@ -55,7 +51,8 @@ type Log struct {
 // CassandraConfig represents the configuration for connecting to a Cassandra
 // cluster, including hosts, consistency level, data center, and connection pool settings.
 type CassandraConfig struct {
-	PageSize       int
+	PageSize       int               // Number of page to retrive from Cassandra
+	NumRetry       int               // Number of retries for failed operations
 	Hosts          string            // Comma-separated list of Cassandra hosts
 	Consistency    gocql.Consistency // Consistency level for Cassandra operations
 	DataCenter     string            // Name of the data center to connect to
@@ -83,7 +80,7 @@ type ScheduleDBConfig struct {
 type PollerConfig struct {
 	Interval      int    // Polling interval in seconds
 	DefaultCount  uint32 // Default number of items to be polled
-	MaxQueryLimit int
+	MaxQueryLimit int    // Maximum number to query to Cassandra for getting Schedules
 }
 
 // ConnectionPool represents the configuration for a connection pool, including
@@ -236,14 +233,13 @@ var defaultConfig = Configuration{
 		TChannelPort:     "9091",
 		BootStrapServers: []string{"127.0.0.1:9091"},
 		JoinSize:         1,
-		PageSize:         1000,
-		NumRetry:         3,
 		ReplicaPoints:    2,
 	},
 	ClusterDB: ClusterDBConfig{
 		ClusterKeySpace: "cluster",
 		DBConfig: CassandraConfig{
 			PageSize:    1000,
+			NumRetry:    3,
 			Hosts:       "127.0.0.1",
 			Consistency: gocql.One,
 			DataCenter:  "",
@@ -259,6 +255,7 @@ var defaultConfig = Configuration{
 		ScheduleKeySpace: "schedule_management",
 		DBConfig: CassandraConfig{
 			PageSize:    1000,
+			NumRetry:    3,
 			Hosts:       "127.0.0.1",
 			Consistency: gocql.One,
 			DataCenter:  "",

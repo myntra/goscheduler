@@ -20,7 +20,6 @@
 package retrievers
 
 import (
-	"fmt"
 	"runtime/debug"
 	"strconv"
 	"time"
@@ -90,7 +89,7 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 		pageState = iter.PageState()
 		queryCount++
 
-		fmt.Printf("Query %d for app %s, partition %d: Fetched %d schedules (Total: %d)",
+		glog.Infof("Query %d for app %s, partition %d: Fetched %d schedules (Total: %d)",
 			queryCount, appName, partitionId, scheduleCount, totalSchedules)
 
 		if err = iter.Close(); err != nil {
@@ -104,7 +103,6 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 					"appId":       appName,
 					"partitionId": strconv.Itoa(partitionId),
 				}, 1)
-				fmt.Printf("Query count exceeded for app: %s, partitionId: %d, timeBucket: %v, with max Query limit: %v", appName, partitionId, timeBucket, s.config.MaxQueryLimit)
 				glog.Errorf("Query count exceeded for app: %s, partitionId: %d, timeBucket: %v, with max Query limit: %v", appName, partitionId, timeBucket, s.config.MaxQueryLimit)
 			}
 			break
