@@ -187,7 +187,7 @@ func (s *ScheduleDaoImpl) GetRecurringScheduleByPartition(partitionId int) ([]st
 
 	_map := make(map[string]interface{})
 	iter := s.Session.Query(query, partitionId).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 
 	for iter.MapScan(_map) {
@@ -225,7 +225,7 @@ func (s *ScheduleDaoImpl) getRecurringSchedule(uuid gocql.UUID) (store.Schedule,
 
 	_map := make(map[string]interface{})
 	err := s.Session.Query(query, uuid).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		MapScan(_map)
 	if err != nil {
 		return store.Schedule{}, err
@@ -253,7 +253,7 @@ func (s *ScheduleDaoImpl) getOneTimeSchedule(uuid gocql.UUID) (store.Schedule, e
 
 	_map := make(map[string]interface{})
 	err := s.Session.Query(query, uuid).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		MapScan(_map)
 	if err != nil {
 		return store.Schedule{}, err
@@ -406,7 +406,7 @@ func (s *ScheduleDaoImpl) getRuns(uuid gocql.UUID, pageState []byte, size int64)
 	return s.Session.Query(query, uuid).
 		PageState(pageState).
 		PageSize(int(size)).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 }
 
@@ -632,7 +632,7 @@ func (s *ScheduleDaoImpl) CreateRun(schedule store.Schedule, app store.App) (sto
 			"parent_schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?",
 	} {
 		batch.
-			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 			Query(
 				query,
 				schedule.AppId,
@@ -673,7 +673,7 @@ func (s *ScheduleDaoImpl) UpdateStatus(schedules []store.Schedule, app store.App
 		reconciliationHistory, _ := json.Marshal(query.ReconciliationHistory)
 
 		batch.
-			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+			RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 			Query(
 				insertStatusQuery,
 				query.AppId,
@@ -853,7 +853,7 @@ func (s *ScheduleDaoImpl) getSchedules(appId string, partitions []int, timeRange
 		timeStamps(timeRange.StartTime, timeRange.EndTime)).
 		PageState(pageState).
 		PageSize(int(size)).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 
 	return iter
@@ -876,7 +876,7 @@ func (s *ScheduleDaoImpl) GetSchedulesForEntity(appId string, partitionId int, t
 		"AND partition_id = ? " +
 		"AND schedule_time_group = ?"
 
-	glog.Infof("Getting schedules from db with Page size : %v", s.Conf.ScheduleDB.DBConfig.PageSize)
+	glog.Infof("Getting schedules from db with Page size : %v and Num retries : %v", s.Conf.ScheduleDB.DBConfig.PageSize, s.Conf.ScheduleDB.DBConfig.NumRetry)
 
 	iter := s.Session.Query(
 		query,
@@ -885,7 +885,7 @@ func (s *ScheduleDaoImpl) GetSchedulesForEntity(appId string, partitionId int, t
 		timeBucket).
 		PageState(pageState).
 		PageSize(s.Conf.ScheduleDB.DBConfig.PageSize).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 
 	return iter
@@ -921,7 +921,7 @@ func (s *ScheduleDaoImpl) setStatus(schedule *store.Schedule) error {
 		schedule.AppId,
 		schedule.PartitionId,
 		schedule.ScheduleId).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		MapScan(_map)
 
 	if err != nil {
@@ -966,7 +966,7 @@ func (s *ScheduleDaoImpl) getBulkStatus(schedules []store.Schedule) db_wrapper.I
 		schedules[0].AppId,
 		schedules[0].PartitionId,
 		uuids).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 
 	return iter
@@ -1043,7 +1043,7 @@ func (s *ScheduleDaoImpl) GetCronSchedulesByApp(appId string, status store.Statu
 
 	_map := make(map[string]interface{})
 	iter := s.Session.Query(query).
-		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ClusterDB.DBConfig.NumRetry}).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: s.Conf.ScheduleDB.DBConfig.NumRetry}).
 		Iter()
 
 	for iter.MapScan(_map) {
