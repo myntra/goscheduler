@@ -21,7 +21,7 @@ package retrievers
 
 // TODO: change name to retrieverimpl
 import (
-	"github.com/myntra/goscheduler/conf"
+	c "github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/dao"
 	p "github.com/myntra/goscheduler/monitoring"
 	"github.com/myntra/goscheduler/retrieveriface"
@@ -42,10 +42,10 @@ func (retriever Retrievers) Get(app string) retrieveriface.Retriever {
 	return retriever[_default]
 }
 
-func InitRetrievers(cronConfig *conf.CronConfig, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor p.Monitor) Retrievers {
-	cronApp := cronConfig.App
+func InitRetrievers(conf *c.Configuration, clusterDao dao.ClusterDao, scheduleDao dao.ScheduleDao, monitor p.Monitor) Retrievers {
+	cronApp := conf.CronConfig.App
 	return Retrievers{
-		_default: ScheduleRetriever{clusterDao: clusterDao, scheduleDao: scheduleDao, monitor: monitor},
-		cronApp:  CronRetriever{scheduleDao: scheduleDao, cronConfig: cronConfig, monitor: monitor},
+		_default: ScheduleRetriever{config: &conf.Poller, clusterDao: clusterDao, scheduleDao: scheduleDao, monitor: monitor},
+		cronApp:  CronRetriever{scheduleDao: scheduleDao, cronConfig: &conf.CronConfig, monitor: monitor},
 	}
 }
