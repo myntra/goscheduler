@@ -23,11 +23,18 @@ import (
 	json2 "encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"github.com/golang/glog"
 	e "github.com/myntra/goscheduler/cluster_entity"
 	"github.com/myntra/goscheduler/constants"
 	"github.com/myntra/goscheduler/dao"
 	p "github.com/myntra/goscheduler/monitoring"
+	"github.com/myntra/goscheduler/poller"
 	"github.com/myntra/goscheduler/store"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
@@ -43,11 +50,6 @@ import (
 	"github.com/uber/tchannel-go"
 	"github.com/uber/tchannel-go/json"
 	"golang.org/x/net/context"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
 )
 
 const (
@@ -73,6 +75,7 @@ type Supervisor struct {
 	clusterDao    dao.ClusterDao
 	scheduleDao   dao.ScheduleDao
 	monitor       p.Monitor
+	MetricsStore  *poller.MetricsStore
 }
 
 type options struct {
@@ -185,7 +188,10 @@ func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, mon
 		entityFactory: entityFactory,
 		clusterDao:    clusterDao,
 		monitor:       monitor,
+		MetricsStore:  poller.NewMetricsStore(),
 	}
+
+	go supervisor.collectMetrics()
 
 	return supervisor
 }
@@ -265,10 +271,45 @@ func (s *Supervisor) StartEntity(id string) (bool, error) {
 	if exists == false {
 		entity := s.entityFactory.CreateEntity(id)
 		recoverableEntity := RecoverableEntity{Obj: entity}
+
+		if poller, ok := entity.(*poller.Poller); ok {
+			poller.Node = s.address
+			poller.Status = "active"
+			poller.Metrics.LastActive = time.Now()
+
+			glog.Infof("Created new poller for app %s on partition %d at node %s",
+				poller.AppName, poller.PartitionId, poller.Node)
+
+			// Initialize metrics for new poller
+			metrics := poller.RecordMetrics()
+			s.MetricsStore.UpdatePollerMetrics(metrics)
+		} else {
+			glog.Warningf("Created entity is not a poller: %T", entity)
+		}
+
 		s.entities.Set(id, recoverableEntity)
 		go recoverableEntity.Start()
 	} else {
 		recoverableEntity := value.(RecoverableEntity)
+
+		if poller, ok := recoverableEntity.Obj.(*poller.Poller); ok {
+			previousStatus := poller.Status
+			previousNode := poller.Node
+
+			poller.Node = s.address
+			poller.Status = "active"
+			poller.Metrics.LastActive = time.Now()
+
+			glog.Infof("Updated existing poller for app %s on partition %d from node %s to %s (status: %s -> active)",
+				poller.AppName, poller.PartitionId, previousNode, poller.Node, previousStatus)
+
+			// Update metrics for existing poller
+			metrics := poller.RecordMetrics()
+			s.MetricsStore.UpdatePollerMetrics(metrics)
+		} else {
+			glog.Warningf("Existing entity is not a poller: %T", recoverableEntity.Obj)
+		}
+
 		go recoverableEntity.Start()
 	}
 	return true, s.clusterDao.UpdateEntityStatus(id, s.address, RUNNING)
@@ -790,4 +831,24 @@ func (s *Supervisor) WaitForTermination() {
 	glog.Info("This is before end")
 	<-exit
 	glog.Info("This is end")
+}
+
+func (s *Supervisor) collectMetrics() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.entities.IterCb(func(key string, v interface{}) {
+			if entity, ok := v.(RecoverableEntity); ok {
+				if p, ok := entity.Obj.(*poller.Poller); ok {
+					metrics := p.RecordMetrics()
+					s.MetricsStore.UpdatePollerMetrics(metrics)
+				}
+			}
+		})
+	}
+}
+
+func (s *Supervisor) GetPollerMetrics() map[string]poller.AppPollerMetrics {
+	return s.MetricsStore.GetAllMetrics()
 }

@@ -22,6 +22,11 @@ package poller
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/cluster_entity"
 	"github.com/myntra/goscheduler/conf"
@@ -29,8 +34,6 @@ import (
 	p "github.com/myntra/goscheduler/monitoring"
 	riface "github.com/myntra/goscheduler/retrieveriface"
 	r "github.com/myntra/goscheduler/retrievers"
-	"strconv"
-	"strings"
 )
 
 type PollerFactory struct {
@@ -59,6 +62,17 @@ func (p PollerFactory) CreateEntity(pollerId string) cluster_entity.Entity {
 		scheduleRetrievalImpl: scheduleRetrievalImpl,
 		config:                p.Config,
 		monitor:               p.Monitor,
+		Status:                "inactive",
+		Metrics: struct {
+			jobsExecuted  int64
+			jobsSucceeded int64
+			jobsFailed    int64
+			LastError     string
+			LastActive    time.Time
+			mu            sync.Mutex
+		}{
+			LastActive: time.Now(),
+		},
 	}
 }
 

@@ -33,6 +33,7 @@ type Service struct {
 	ClusterDao  dao.ClusterDao
 	ScheduleDao dao.ScheduleDao
 	Monitor     monitoring.Monitor
+	//MetricsStore *poller.MetricsStore
 }
 
 func NewService(config *c.Configuration, supervisor cluster.SupervisorHandler, clusterDao dao.ClusterDao, scheduleDAO dao.ScheduleDao, monitor monitoring.Monitor) *Service {

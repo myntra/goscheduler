@@ -21,6 +21,7 @@ package cluster
 
 import (
 	e "github.com/myntra/goscheduler/cluster_entity"
+	"github.com/myntra/goscheduler/poller"
 	"github.com/myntra/goscheduler/store"
 )
 
@@ -32,4 +33,6 @@ type SupervisorHandler interface {
 	DeactivateApp(app store.App)
 	// ActivateApp activates the specified application.
 	ActivateApp(app store.App)
+	// Getting Poller Meta Data
+	GetPollerMetrics() map[string]poller.AppPollerMetrics
 }

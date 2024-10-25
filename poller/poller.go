@@ -20,13 +20,16 @@
 package poller
 
 import (
+	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/constants"
 	p "github.com/myntra/goscheduler/monitoring"
 	r "github.com/myntra/goscheduler/retrieveriface"
-	"strconv"
-	"time"
 )
 
 type Poller struct {
@@ -36,6 +39,16 @@ type Poller struct {
 	ticker                *time.Ticker
 	config                conf.PollerConfig
 	monitor               p.Monitor
+	Metrics               struct {
+		jobsExecuted  int64
+		jobsSucceeded int64
+		jobsFailed    int64
+		LastError     string
+		LastActive    time.Time
+		mu            sync.Mutex
+	}
+	Status string
+	Node   string
 }
 
 func (p *Poller) recordPollerLifeCycle(lifeCycleMethod string) {
@@ -54,16 +67,56 @@ func (p *Poller) Init() error {
 }
 
 func (p *Poller) Start() {
+	p.Status = "active"
+
 	p.recordPollerLifeCycle(constants.Start)
 	for currentTime := range p.ticker.C {
 		p.recordPollerLifeCycle(constants.Running)
 		timeBucket := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), 0, 0, currentTime.Location())
-		go p.scheduleRetrievalImpl.GetSchedules(p.AppName, p.PartitionId, timeBucket)
+		go func() {
+			err := p.scheduleRetrievalImpl.GetSchedules(p.AppName, p.PartitionId, timeBucket)
+			p.incrementJobMetrics(err == nil, err)
+		}()
 	}
 }
 
 func (p *Poller) Stop() {
+	p.Status = "inactive"
 	p.recordPollerLifeCycle(constants.Stop)
 	glog.Infof("Stopping poller for %s.%d", p.AppName, p.PartitionId)
 	p.ticker.Stop()
+}
+
+func (p *Poller) RecordMetrics() PollerMetrics {
+	p.Metrics.mu.Lock()
+	defer p.Metrics.mu.Unlock()
+
+	return PollerMetrics{
+		ID:            fmt.Sprintf("%s-%d", p.AppName, p.PartitionId),
+		AppName:       p.AppName,
+		PartitionID:   p.PartitionId,
+		Node:          p.Node,
+		Status:        p.Status,
+		LastActive:    p.Metrics.LastActive,
+		JobsExecuted:  p.Metrics.jobsExecuted,
+		JobsSucceeded: p.Metrics.jobsSucceeded,
+		JobsFailed:    p.Metrics.jobsFailed,
+		LastError:     p.Metrics.LastError,
+	}
+}
+
+func (p *Poller) incrementJobMetrics(succeeded bool, err error) {
+	p.Metrics.mu.Lock()
+	defer p.Metrics.mu.Unlock()
+
+	p.Metrics.jobsExecuted++
+	if succeeded {
+		p.Metrics.jobsSucceeded++
+	} else {
+		p.Metrics.jobsFailed++
+		if err != nil {
+			p.Metrics.LastError = err.Error()
+		}
+	}
+	p.Metrics.LastActive = time.Now()
 }
