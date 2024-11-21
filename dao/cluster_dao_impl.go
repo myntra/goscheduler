@@ -55,18 +55,19 @@ var (
 	KeyAppTable    = "apps"
 	MaxConfigApp   = "maxConfig"
 
-	KeyEntitiesOfNode    = "SELECT id, status FROM " + KeyNodeTable + " WHERE nodename='%s';"
-	KeyGetAllEntities    = "SELECT id, nodename, status, history FROM " + KeyEntityTable + ";"
-	KeyGetEntity         = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id='%s';"
-	KeyUpdateEntityInfo  = "UPDATE " + KeyEntityTable + " SET nodename='%s', status=%d, history='%s' WHERE id='%s';"
-	QueryInsertEntity    = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
-	QueryInsertApp       = "INSERT INTO " + KeyAppTable + " (id, partitions, active, configuration) VALUES (?, ?, ?, ?)"
-	KeyAppById           = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id='%s';"
-	KeyAppByIds          = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
-	KeyGelAllApps        = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + ";"
-	QueryUpdateAppStatus = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
-	QueryGetConfig       = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
-	QueryUpdateConfig    = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
+	KeyEntitiesOfNode       = "SELECT id, status FROM " + KeyNodeTable + " WHERE nodename='%s';"
+	KeyGetAllEntities       = "SELECT id, nodename, status, history FROM " + KeyEntityTable + ";"
+	KeyGetEntity            = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id='%s';"
+	KeyUpdateEntityInfo     = "UPDATE " + KeyEntityTable + " SET nodename='%s', status=%d, history='%s' WHERE id='%s';"
+	QueryInsertEntity       = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
+	QueryInsertApp          = "INSERT INTO " + KeyAppTable + " (id, partitions, active, configuration) VALUES (?, ?, ?, ?)"
+	KeyAppById              = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id='%s';"
+	KeyAppByIds             = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
+	KeyGelAllApps           = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + ";"
+	QueryUpdateAppStatus    = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
+	QueryGetConfig          = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
+	QueryUpdateConfig       = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
+	KeyGetAllEntitiesForApp = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id in %s;"
 )
 
 // TODO: Should we make it singleton?
@@ -207,6 +208,31 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 	var entities []e.EntityInfo
 	iter := c.Session.
 		Query(KeyGetAllEntities).
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
+		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
+		Iter()
+
+	for iter.Scan(&id, &nodeName, &status, &history) {
+		entities = append(entities, e.EntityInfo{Id: id, Node: nodeName, Status: status, History: history})
+	}
+
+	if err := iter.Close(); err != nil {
+		glog.Fatal(err)
+	}
+
+	glog.Infof("GetAllEntitiesInfo result is : %+v", entities)
+	return entities
+}
+
+func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(id string) []e.EntityInfo {
+	var nodeName string
+	var status int
+	var history string
+
+	var entities []e.EntityInfo
+	query := fmt.Sprintf(KeyGetAllEntitiesForApp, id)
+	iter := c.Session.
+		Query(query).
 		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
 		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
 		Iter()
