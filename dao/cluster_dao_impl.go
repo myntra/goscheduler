@@ -240,8 +240,8 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.Entity
 	}
 
 	//loop over partitions of an app
-	parts := make([]string, app.Partitions+1)
-	for i := uint32(0); i <= app.Partitions; i++ {
+	parts := make([]string, app.Partitions)
+	for i := uint32(0); i < app.Partitions; i++ {
 		parts[i] = fmt.Sprintf("'%v.%d'", app.AppId, i)
 	}
 	ids := fmt.Sprintf("(%s)", strings.Join(parts, ","))
@@ -252,7 +252,6 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.Entity
 	iter := c.Session.
 		Query(query).
 		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
-		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
 		Iter()
 	for iter.Scan(&appId, &nodeName, &status, &history) {
 		entities = append(entities, e.EntityInfo{Id: appId, Node: nodeName, Status: status, History: history})
