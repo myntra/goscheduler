@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -55,18 +56,19 @@ var (
 	KeyAppTable    = "apps"
 	MaxConfigApp   = "maxConfig"
 
-	KeyEntitiesOfNode    = "SELECT id, status FROM " + KeyNodeTable + " WHERE nodename='%s';"
-	KeyGetAllEntities    = "SELECT id, nodename, status, history FROM " + KeyEntityTable + ";"
-	KeyGetEntity         = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id='%s';"
-	KeyUpdateEntityInfo  = "UPDATE " + KeyEntityTable + " SET nodename='%s', status=%d, history='%s' WHERE id='%s';"
-	QueryInsertEntity    = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
-	QueryInsertApp       = "INSERT INTO " + KeyAppTable + " (id, partitions, active, configuration) VALUES (?, ?, ?, ?)"
-	KeyAppById           = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id='%s';"
-	KeyAppByIds          = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
-	KeyGelAllApps        = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + ";"
-	QueryUpdateAppStatus = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
-	QueryGetConfig       = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
-	QueryUpdateConfig    = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
+	KeyEntitiesOfNode       = "SELECT id, status FROM " + KeyNodeTable + " WHERE nodename='%s';"
+	KeyGetAllEntities       = "SELECT id, nodename, status, history FROM " + KeyEntityTable + ";"
+	KeyGetEntity            = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id='%s';"
+	KeyUpdateEntityInfo     = "UPDATE " + KeyEntityTable + " SET nodename='%s', status=%d, history='%s' WHERE id='%s';"
+	QueryInsertEntity       = "INSERT INTO " + KeyEntityTable + " (id, nodename, status) VALUES (?, ?, ?)"
+	QueryInsertApp          = "INSERT INTO " + KeyAppTable + " (id, partitions, active, configuration) VALUES (?, ?, ?, ?)"
+	KeyAppById              = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id='%s';"
+	KeyAppByIds             = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + " WHERE id in (?, ?);"
+	KeyGelAllApps           = "SELECT id, partitions, active, configuration FROM " + KeyAppTable + ";"
+	QueryUpdateAppStatus    = "UPDATE " + KeyAppTable + " set active = %s where id='%s'"
+	QueryGetConfig          = "SELECT configuration FROM " + KeyAppTable + " WHERE id='%s';"
+	QueryUpdateConfig       = "UPDATE " + KeyAppTable + " SET configuration='%s' WHERE id='%s';"
+	KeyGetAllEntitiesForApp = "SELECT id, nodename, status, history FROM " + KeyEntityTable + " WHERE id in %s;"
 )
 
 // TODO: Should we make it singleton?
@@ -221,6 +223,47 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 
 	glog.Infof("GetAllEntitiesInfo result is : %+v", entities)
 	return entities
+}
+
+// Get all the entities of single app
+// Raise a Error in case there is any error while retriving pollers for that app
+func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.EntityInfo, error) {
+	var nodeName string
+	var status int
+	var history string
+
+	//getting app info
+	app, err := c.GetApp(appId)
+	if err != nil {
+		glog.Errorf("Error: %s while getting app info for GetAllEntitiesForApp: %+v for app: %s", err.Error(), appId)
+		return nil, err
+	}
+
+	//loop over partitions of an app
+	parts := make([]string, app.Partitions)
+	for i := uint32(0); i < app.Partitions; i++ {
+		parts[i] = fmt.Sprintf("'%v.%d'", app.AppId, i)
+	}
+	ids := fmt.Sprintf("(%s)", strings.Join(parts, ","))
+
+	//getting all the pollers information for an app id
+	var entities []e.EntityInfo
+	query := fmt.Sprintf(KeyGetAllEntitiesForApp, ids)
+	iter := c.Session.
+		Query(query).
+		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
+		Iter()
+	for iter.Scan(&appId, &nodeName, &status, &history) {
+		entities = append(entities, e.EntityInfo{Id: appId, Node: nodeName, Status: status, History: history})
+	}
+
+	if err := iter.Close(); err != nil {
+		glog.Errorf("Error: %s while getting poller info for GetAllEntitiesForApp: %+v for app: %s", err.Error(), appId)
+		return nil, err
+	}
+
+	glog.Infof("GetAllEntitiesInfo result is : %+v", entities)
+	return entities, nil
 }
 
 // Get entity by id
