@@ -232,19 +232,21 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.Entity
 	var status int
 	var history string
 
+	//getting app info
 	app, err := c.GetApp(appId)
 	if err != nil {
 		glog.Errorf("Error: %s while getting app info for GetAllEntitiesForApp: %+v for app: %s", err.Error(), appId)
 		return nil, err
 	}
 
+	//loop over partitions of an app
 	parts := make([]string, app.Partitions+1)
-
 	for i := uint32(0); i <= app.Partitions; i++ {
 		parts[i] = fmt.Sprintf("'%v.%d'", app.AppId, i)
 	}
 	ids := fmt.Sprintf("(%s)", strings.Join(parts, ","))
 
+	//getting all the pollers information for an app id
 	var entities []e.EntityInfo
 	query := fmt.Sprintf(KeyGetAllEntitiesForApp, ids)
 	iter := c.Session.
@@ -252,7 +254,6 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.Entity
 		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
 		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
 		Iter()
-
 	for iter.Scan(&appId, &nodeName, &status, &history) {
 		entities = append(entities, e.EntityInfo{Id: appId, Node: nodeName, Status: status, History: history})
 	}
