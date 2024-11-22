@@ -89,9 +89,6 @@ func (s ScheduleRetriever) GetSchedules(appName string, partitionId int, timeBuc
 		pageState = iter.PageState()
 		queryCount++
 
-		glog.Infof("Query %d for app %s, partition %d: Fetched %d schedules (Total: %d)",
-			queryCount, appName, partitionId, scheduleCount, totalSchedules)
-
 		if err = iter.Close(); err != nil {
 			glog.Errorf("Error: %s while fetching schedules for app: %s, partitionId: %d, timeBucket: %v", err.Error(), appName, partitionId, timeBucket)
 			return err
