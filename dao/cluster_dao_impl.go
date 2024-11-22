@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -225,30 +226,44 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 }
 
 // Get all the entities of single app
-// Raise a fatal exception in case there is an exception getting all entities
-func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(id string) []e.EntityInfo {
+// Raise a Error in case there is any error while retriving pollers for that app
+func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(appId string) ([]e.EntityInfo, error) {
 	var nodeName string
 	var status int
 	var history string
 
+	app, err := c.GetApp(appId)
+	if err != nil {
+		glog.Errorf("Error: %s while getting app info for GetAllEntitiesForApp: %+v for app: %s", err.Error(), appId)
+		return nil, err
+	}
+
+	parts := make([]string, app.Partitions+1)
+
+	for i := uint32(0); i <= app.Partitions; i++ {
+		parts[i] = fmt.Sprintf("'%v.%d'", app.AppId, i)
+	}
+	ids := fmt.Sprintf("(%s)", strings.Join(parts, ","))
+
 	var entities []e.EntityInfo
-	query := fmt.Sprintf(KeyGetAllEntitiesForApp, id)
+	query := fmt.Sprintf(KeyGetAllEntitiesForApp, ids)
 	iter := c.Session.
 		Query(query).
 		Consistency(c.Conf.ClusterDB.DBConfig.Consistency).
 		PageSize(c.Conf.ClusterDB.DBConfig.PageSize).
 		Iter()
 
-	for iter.Scan(&id, &nodeName, &status, &history) {
-		entities = append(entities, e.EntityInfo{Id: id, Node: nodeName, Status: status, History: history})
+	for iter.Scan(&appId, &nodeName, &status, &history) {
+		entities = append(entities, e.EntityInfo{Id: appId, Node: nodeName, Status: status, History: history})
 	}
 
 	if err := iter.Close(); err != nil {
-		glog.Fatal(err)
+		glog.Errorf("Error: %s while getting poller info for GetAllEntitiesForApp: %+v for app: %s", err.Error(), appId)
+		return nil, err
 	}
 
 	glog.Infof("GetAllEntitiesInfo result is : %+v", entities)
-	return entities
+	return entities, nil
 }
 
 // Get entity by id

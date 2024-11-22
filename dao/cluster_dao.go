@@ -27,7 +27,7 @@ import (
 type ClusterDao interface {
 	GetAllEntitiesInfoOfNode(nodeName string) []e.EntityInfo
 	GetAllEntitiesInfo() []e.EntityInfo
-	GetAllEntitiesForApp(appId string) []e.EntityInfo
+	GetAllEntitiesForApp(appId string) ([]e.EntityInfo, error)
 	GetEntityInfo(id string) e.EntityInfo
 	UpdateEntityStatus(id string, nodeName string, status int) error
 	GetApp(appName string) (store.App, error)
