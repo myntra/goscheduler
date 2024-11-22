@@ -224,6 +224,8 @@ func (c *ClusterDaoImplCassandra) GetAllEntitiesInfo() []e.EntityInfo {
 	return entities
 }
 
+// Get all the entities of single app
+// Raise a fatal exception in case there is an exception getting all entities
 func (c *ClusterDaoImplCassandra) GetAllEntitiesForApp(id string) []e.EntityInfo {
 	var nodeName string
 	var status int
