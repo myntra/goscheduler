@@ -23,6 +23,13 @@ import (
 	json2 "encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/golang/glog"
 	e "github.com/myntra/goscheduler/cluster_entity"
 	"github.com/myntra/goscheduler/constants"
@@ -43,11 +50,6 @@ import (
 	"github.com/uber/tchannel-go"
 	"github.com/uber/tchannel-go/json"
 	"golang.org/x/net/context"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
 )
 
 const (
@@ -267,9 +269,14 @@ func (s *Supervisor) StartEntity(id string) (bool, error) {
 		recoverableEntity := RecoverableEntity{Obj: entity}
 		s.entities.Set(id, recoverableEntity)
 		go recoverableEntity.Start()
+		// Set gauge to 1 when poller starts
+		s.updatePollerGauge(id, 1)
 	} else {
 		recoverableEntity := value.(RecoverableEntity)
 		go recoverableEntity.Start()
+		// Ensure gauge is set to 1
+		s.updatePollerGauge(id, 1)
+
 	}
 	return true, s.clusterDao.UpdateEntityStatus(id, s.address, RUNNING)
 }
@@ -285,6 +292,8 @@ func (s *Supervisor) StopEntity(id string) (bool, error) {
 		recoverableEntity := value.(RecoverableEntity)
 		recoverableEntity.Stop()
 		s.entities.Remove(id)
+		// Set gauge to 0 when poller stops
+		s.updatePollerGauge(id, 0)
 		err = s.clusterDao.UpdateEntityStatus(id, s.address, STOPPED)
 	}
 	return exists, err
@@ -666,6 +675,8 @@ func (s *Supervisor) HandleEvent(event events.Event) {
 			if s.address == server {
 				panic("ServersRemoved for Self!!!")
 			}
+			// Clean up gauges for removed node
+			s.cleanupRemovedNodeGauges(server)
 			s.OffloadOrPanic(server)
 		}
 		break
@@ -790,4 +801,51 @@ func (s *Supervisor) WaitForTermination() {
 	glog.Info("This is before end")
 	<-exit
 	glog.Info("This is end")
+}
+
+// Add this method to the Supervisor struct
+func (s *Supervisor) updatePollerGauge(entityID string, value float64) {
+	if s.monitor == nil {
+		return
+	}
+
+	// Parse entity ID to get app and partition
+	parts := strings.Split(entityID, constants.PollerKeySep)
+	if len(parts) != 2 {
+		glog.Errorf("Invalid entity ID format: %s", entityID)
+		return
+	}
+
+	labels := map[string]string{
+		"app_id":       parts[0],
+		"partition_id": parts[1],
+		"node":         s.address,
+	}
+
+	s.monitor.SetGauge(constants.PollerDistributionMetric, labels, value)
+}
+
+// Add this new method to clean up gauges when a node is removed
+func (s *Supervisor) cleanupRemovedNodeGauges(removedNode string) {
+	if s.monitor == nil {
+		return
+	}
+
+	// Get all entities that were on the removed node
+	entities := s.clusterDao.GetAllEntitiesInfoOfNode(removedNode)
+	for _, entity := range entities {
+		parts := strings.Split(entity.Id, constants.PollerKeySep)
+		if len(parts) != 2 {
+			continue
+		}
+
+		labels := map[string]string{
+			"app_id":       parts[0],
+			"partition_id": parts[1],
+			"node":         removedNode,
+		}
+
+		// Remove the gauge labels for the removed node
+		s.monitor.DeleteGaugeLabels(constants.PollerDistributionMetric, labels)
+	}
 }
