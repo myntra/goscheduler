@@ -81,4 +81,5 @@ const (
 	GetSchedulesByEntity              = "get_schedules_by_entity"
 	GetSchedulesByEntityDuration      = "get_schedules_by_entity_duration"
 	GetSchedulesByEntityMaxQueryCount = "get_schedules_by_entity_max_query_count"
+	PollerDistributionMetric          = "poller_distribution"
 )
