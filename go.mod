@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/cactus/go-statsd-client/statsd v0.0.0-20191106001114-12b4e2b38748
-	github.com/gocql/gocql v1.2.1
+	github.com/gocql/gocql v1.7.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1-0.20200912192056-d07530f46e1e
