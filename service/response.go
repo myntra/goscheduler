@@ -199,3 +199,14 @@ type ScheduleResponse struct {
 type ScheduleData struct {
 	Schedule s.Schedule `json:"schedule"`
 }
+
+// UpdatedScheduleResponse is the response structure for the updateRecurringSchedule endpoint
+type UpdatedScheduleResponse struct {
+	Status Status              `json:"status"`
+	Data   UpdatedScheduleData `json:"data"`
+}
+
+// UpdatedScheduleData contains the updated schedule
+type UpdatedScheduleData struct {
+	Schedule s.Schedule `json:"schedule"`
+}

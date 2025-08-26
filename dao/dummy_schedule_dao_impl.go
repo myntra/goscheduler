@@ -213,6 +213,12 @@ func (d *DummyScheduleDaoImpl) BulkAction(app s.App, partitionId int, scheduleTi
 	return nil
 }
 
+// UpdateRecurringSchedule is a no-op stub to satisfy the ScheduleDao interface during tests.
+// It simply returns the schedule as-is without error.
+func (d *DummyScheduleDaoImpl) UpdateRecurringSchedule(schedule s.Schedule) (s.Schedule, error) {
+	return schedule, nil
+}
+
 func (d *DummyScheduleDaoImpl) UpdateRecurringScheduleStatus(schedule s.Schedule, status s.Status) (s.Schedule, error) {
 	schedule.Status = status
 	return schedule, nil

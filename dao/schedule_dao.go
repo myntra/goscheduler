@@ -43,4 +43,5 @@ type ScheduleDao interface {
 	GetCronSchedulesByApp(appId string, status s.Status) ([]s.Schedule, []string)
 	BulkAction(app s.App, partitionId int, scheduleTimeGroup time.Time, status []s.Status, actionType s.ActionType) error
 	UpdateRecurringScheduleStatus(schedule s.Schedule, status s.Status) (s.Schedule, error)
+	UpdateRecurringSchedule(schedule s.Schedule) (s.Schedule, error)
 }

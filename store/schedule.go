@@ -214,6 +214,34 @@ func convertCallbackToRaw(s *Schedule) ([]byte, error) {
 	return nil, errors.New("nil callback object")
 }
 
+// CreateCallbackFromRawMessage creates a Callback from a json.RawMessage
+func CreateCallbackFromRawMessage(rawMessage json.RawMessage) (Callback, error) {
+	// First try to extract type from JSON
+	var typeInfo struct {
+		Type string `json:"type"`
+	}
+
+	if err := json.Unmarshal(rawMessage, &typeInfo); err == nil && typeInfo.Type != "" {
+		// Use registry if type is specified
+		if factory, exists := Registry[typeInfo.Type]; exists {
+			callback := factory()
+			if err := json.Unmarshal(rawMessage, callback); err == nil {
+				return callback, nil
+			}
+		}
+	}
+
+	// Fallback to trying known types (for backward compatibility)
+	for _, factory := range Registry {
+		callback := factory()
+		if err := json.Unmarshal(rawMessage, callback); err == nil {
+			return callback, nil
+		}
+	}
+
+	return nil, errors.New("invalid callback format")
+}
+
 func (s Schedule) IsRecurring() bool {
 	return len(s.CronExpression) > 0
 }
@@ -381,7 +409,7 @@ func (s *Schedule) ValidateSchedule(app App, conf conf.AppLevelConfiguration) []
 		errs = append(errs, errStr)
 	}
 
-	if s.IsRecurring() {
+	if len(s.CronExpression) > 0 {
 		if er := validateCronExpression(s.CronExpression); len(er) > 0 {
 			errs = append(errs, er...)
 		}

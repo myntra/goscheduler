@@ -90,6 +90,12 @@ func (s *Server) registerHTTPHandlers() {
 		}),
 	).Methods("GET")
 
+	s.router.HandleFunc("/goscheduler/schedules/{scheduleId}/updateRecurringSchedule",
+		s.monitoringMiddleware(constants.UpdateRecurringSchedule, func(w http.ResponseWriter, r *http.Request) {
+			s.service.UpdateRecurringSchedule(w, r)
+		}),
+	).Methods("PUT")
+
 	s.router.HandleFunc("/goscheduler/schedules/{scheduleId}/pause",
 		s.monitoringMiddleware(constants.PauseSchedule, func(w http.ResponseWriter, r *http.Request) {
 			s.service.PauseSchedule(w, r)

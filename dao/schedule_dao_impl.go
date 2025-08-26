@@ -1227,3 +1227,76 @@ func (sdi *ScheduleDaoImpl) UpdateRecurringScheduleStatus(schedule store.Schedul
 
 	return schedule, err
 }
+
+// UpdateRecurringSchedule updates a recurring schedule with new values like cron expression, payload,
+// headers, callback_type, and call_back_url. It also deletes all future runs.
+func (sdi *ScheduleDaoImpl) UpdateRecurringSchedule(schedule store.Schedule) (store.Schedule, error) {
+	batch := gocql.NewBatch(gocql.LoggedBatch)
+
+	for _, query := range []string{
+		"INSERT INTO recurring_schedules_by_id (" +
+			"app_id," +
+			"partition_id," +
+			"schedule_id," +
+			"payload," +
+			"callback_type," +
+			"callback_details," +
+			"cron_expression, " +
+			"status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+
+		"INSERT INTO recurring_schedules_by_partition (" +
+			"app_id," +
+			"partition_id," +
+			"schedule_id," +
+			"payload," +
+			"callback_type," +
+			"callback_details," +
+			"cron_expression, " +
+			"status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+	} {
+		batch.Query(
+			query,
+			schedule.AppId,
+			schedule.PartitionId,
+			schedule.ScheduleId,
+			schedule.Payload,
+			schedule.GetCallBackType(),
+			schedule.GetCallbackDetails(),
+			schedule.CronExpression,
+			schedule.Status)
+	}
+
+	// Delete all future runs
+	runs, _, err := sdi.getFutureRuns(schedule.ScheduleId, -1, nil)
+	if err != nil {
+		return schedule, err
+	}
+
+	deleteFromRuns := "DELETE FROM recurring_schedule_runs " +
+		"WHERE " +
+		"schedule_time_group = ? " +
+		"AND parent_schedule_id = ?"
+
+	for _, run := range runs {
+		batch.Query(
+			deleteFromRuns,
+			run.ScheduleGroup*constants.SecondsToMillis,
+			schedule.ScheduleId)
+
+		batch.Query(
+			deleteFromSchedule,
+			run.AppId,
+			run.PartitionId,
+			run.ScheduleGroup*constants.SecondsToMillis,
+			run.ScheduleId)
+	}
+
+	err = sdi.Session.ExecuteBatch(batch)
+	if err != nil {
+		glog.Errorf("Error: %s while updating recurring schedule: %+v", err.Error(), schedule)
+	} else {
+		glog.Infof("Updated schedule with id: %s, updated schedule: %+v", schedule.ScheduleId, schedule)
+	}
+
+	return schedule, err
+}
