@@ -1300,3 +1300,67 @@ func (sdi *ScheduleDaoImpl) UpdateRecurringSchedule(schedule store.Schedule) (st
 
 	return schedule, err
 }
+
+// CreateAuditLog creates an audit log entry in the database
+func (sdi *ScheduleDaoImpl) CreateAuditLog(log store.AuditLog) error {
+	query := "INSERT INTO audit_logs (" +
+		"app_id," +
+		"schedule_id," +
+		"action," +
+		"actor," +
+		"timestamp," +
+		"details) VALUES (?, ?, ?, ?, ?, ?)"
+
+	err := sdi.Session.Query(
+		query,
+		log.AppId,
+		log.ScheduleId,
+		log.Action,
+		log.Actor,
+		log.Timestamp,
+		log.Details,
+	).Exec()
+
+	if err != nil {
+		glog.Errorf("Error creating audit log: %v", err)
+	}
+
+	return err
+}
+
+// GetAuditLogs retrieves audit logs for a specific schedule
+func (sdi *ScheduleDaoImpl) GetAuditLogs(appId string, scheduleId gocql.UUID, limit int) ([]store.AuditLog, error) {
+	query := "SELECT " +
+		"app_id," +
+		"schedule_id," +
+		"action," +
+		"actor," +
+		"timestamp," +
+		"details " +
+		"FROM audit_logs " +
+		"WHERE app_id = ? AND schedule_id = ? " +
+		"LIMIT ?"
+
+	var auditLogs []store.AuditLog
+	_map := make(map[string]interface{})
+
+	iter := sdi.Session.Query(query, appId, scheduleId, limit).
+		RetryPolicy(&gocql.SimpleRetryPolicy{NumRetries: sdi.Conf.ScheduleDB.DBConfig.NumRetry}).
+		Iter()
+
+	for iter.MapScan(_map) {
+		var auditLog store.AuditLog
+		if err := auditLog.CreateAuditLogFromCassandraMap(_map); err != nil {
+			glog.Errorf("Error creating audit log from map: %v", err)
+		} else {
+			auditLogs = append(auditLogs, auditLog)
+		}
+		_map = make(map[string]interface{})
+	}
+
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+
+	return auditLogs, nil
+}

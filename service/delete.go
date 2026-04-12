@@ -33,7 +33,13 @@ func (s *Service) CancelSchedule(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	uuid := vars["scheduleId"]
 
-	schedule, err := s.DeleteSchedule(uuid)
+	// Extract actor from request header, default to "system" if not provided
+	actor := r.Header.Get("X-User-ID")
+	if actor == "" {
+		actor = "system"
+	}
+
+	schedule, err := s.DeleteSchedule(uuid, actor)
 	if err != nil {
 		s.recordRequestStatus(constants.DeleteSchedule, constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
@@ -58,17 +64,29 @@ func (s *Service) CancelSchedule(w http.ResponseWriter, r *http.Request) {
 		})
 }
 
-func (s *Service) DeleteSchedule(uuid string) (sch.Schedule, error) {
+func (s *Service) DeleteSchedule(uuid string, actor ...string) (sch.Schedule, error) {
 	scheduleId, err := gocql.ParseUUID(uuid)
 	if err != nil {
 		return sch.Schedule{}, er.NewError(er.InvalidDataCode, err)
 	}
 
-	switch schedule, err := s.ScheduleDao.DeleteSchedule(scheduleId); err {
+	// Get schedule details before deletion for audit log
+	schedule, err := s.ScheduleDao.GetSchedule(scheduleId)
+	if err != nil {
+		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
+	}
+
+	switch deletedSchedule, err := s.ScheduleDao.DeleteSchedule(scheduleId); err {
 	case gocql.ErrNotFound:
 		return sch.Schedule{}, er.NewError(er.DataNotFound, err)
 	case nil:
-		return schedule, nil
+		// Create audit log for schedule deletion
+		auditActor := "system"
+		if len(actor) > 0 && actor[0] != "" {
+			auditActor = actor[0]
+		}
+		s.createAuditLog(schedule, sch.AuditActionDelete, auditActor)
+		return deletedSchedule, nil
 	default:
 		return sch.Schedule{}, er.NewError(er.DataFetchFailure, err)
 	}

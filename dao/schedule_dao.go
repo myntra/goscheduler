@@ -44,4 +44,6 @@ type ScheduleDao interface {
 	BulkAction(app s.App, partitionId int, scheduleTimeGroup time.Time, status []s.Status, actionType s.ActionType) error
 	UpdateRecurringScheduleStatus(schedule s.Schedule, status s.Status) (s.Schedule, error)
 	UpdateRecurringSchedule(schedule s.Schedule) (s.Schedule, error)
+	CreateAuditLog(log s.AuditLog) error
+	GetAuditLogs(appId string, scheduleId gocql.UUID, limit int) ([]s.AuditLog, error)
 }

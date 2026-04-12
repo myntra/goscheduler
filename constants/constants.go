@@ -84,4 +84,5 @@ const (
 	GetSchedulesByEntityDuration      = "get_schedules_by_entity_duration"
 	GetSchedulesByEntityMaxQueryCount = "get_schedules_by_entity_max_query_count"
 	UpdateRecurringSchedule           = "update_recurring_schedule"
+	GetAuditLogs                      = "get_audit_logs"
 )

@@ -156,6 +156,12 @@ func (s *Server) registerHTTPHandlers() {
 		}),
 	).Methods("GET")
 
+	s.router.HandleFunc("/goscheduler/apps/{appId}/schedules/{scheduleId}/audit-logs",
+		s.monitoringMiddleware(constants.GetAuditLogs, func(w http.ResponseWriter, r *http.Request) {
+			s.service.GetAuditLogs(w, r)
+		}),
+	).Methods("GET")
+
 	s.router.Handle("/metrics", promhttp.Handler())
 }
 

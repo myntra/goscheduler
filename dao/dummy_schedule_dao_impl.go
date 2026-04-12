@@ -223,3 +223,13 @@ func (d *DummyScheduleDaoImpl) UpdateRecurringScheduleStatus(schedule s.Schedule
 	schedule.Status = status
 	return schedule, nil
 }
+
+// CreateAuditLog is a no-op stub to satisfy the ScheduleDao interface during tests.
+func (d *DummyScheduleDaoImpl) CreateAuditLog(log s.AuditLog) error {
+	return nil
+}
+
+// GetAuditLogs is a no-op stub to satisfy the ScheduleDao interface during tests.
+func (d *DummyScheduleDaoImpl) GetAuditLogs(appId string, scheduleId gocql.UUID, limit int) ([]s.AuditLog, error) {
+	return nil, nil
+}

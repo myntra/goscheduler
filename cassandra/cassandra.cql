@@ -91,3 +91,13 @@ SELECT nodename, id, status
 FROM cluster.entity
 WHERE nodename IS NOT NULL AND id IS NOT NULL
 PRIMARY KEY (nodename, id);
+
+CREATE TABLE IF NOT EXISTS schedule_management.audit_logs (
+                                            app_id text,
+                                            schedule_id uuid,
+                                            action text,
+                                            actor text,
+                                            timestamp timestamp,
+                                            details text,
+                                            PRIMARY KEY ((app_id, schedule_id), timestamp)
+) WITH CLUSTERING ORDER BY (timestamp DESC);

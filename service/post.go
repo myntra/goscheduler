@@ -50,7 +50,13 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	schedule, err := s.CreateSchedule(input)
+	// Extract actor from request header, default to "system" if not provided
+	actor := r.Header.Get("X-User-ID")
+	if actor == "" {
+		actor = "system"
+	}
+
+	schedule, err := s.CreateSchedule(input, actor)
 	if err != nil {
 		s.recordRequestAppStatus(constants.CreateSchedule, getAppId(sch.Schedule{}), constants.Fail)
 		er.Handle(w, r, err.(er.AppError))
@@ -64,7 +70,7 @@ func (s *Service) Post(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateSchedule createSchedule creates a new schedule
-func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
+func (s *Service) CreateSchedule(input sch.Schedule, actor ...string) (sch.Schedule, error) {
 	app, err := s.getApp(input.AppId)
 	if err != nil {
 		return sch.Schedule{}, err
@@ -90,7 +96,23 @@ func (s *Service) CreateSchedule(input sch.Schedule) (sch.Schedule, error) {
 		return sch.Schedule{}, er.NewError(er.DataPersistenceFailure, err)
 	}
 
+	// Create audit log for schedule creation
+	auditActor := "system"
+	if len(actor) > 0 && actor[0] != "" {
+		auditActor = actor[0]
+	}
+	s.createAuditLog(schedule, sch.AuditActionCreate, auditActor)
+
 	return schedule, nil
+}
+
+// createAuditLog creates an audit log entry for a schedule operation
+func (s *Service) createAuditLog(schedule sch.Schedule, action sch.AuditAction, actor string) {
+	auditLog := sch.NewAuditLogFromSchedule(schedule, action, actor)
+	if err := s.ScheduleDao.CreateAuditLog(auditLog); err != nil {
+		// Log the error but don't fail the operation
+		glog.Errorf("Failed to create audit log for schedule %s: %v", schedule.ScheduleId, err)
+	}
 }
 
 // getApp retrieves the app based on the provided app ID
