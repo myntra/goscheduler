@@ -20,22 +20,53 @@
 package poller
 
 import (
+	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/myntra/goscheduler/conf"
 	"github.com/myntra/goscheduler/constants"
-	p "github.com/myntra/goscheduler/monitoring"
+	"github.com/myntra/goscheduler/monitoring"
 	r "github.com/myntra/goscheduler/retrieveriface"
-	"strconv"
-	"time"
 )
 
 type Poller struct {
 	AppName               string
 	PartitionId           int
 	scheduleRetrievalImpl r.Retriever
-	ticker                *time.Ticker
 	config                conf.PollerConfig
-	monitor               p.Monitor
+	monitor               monitoring.Monitor
+	mu                    sync.Mutex
+	node                  string
+	run                   *pollerRun
+}
+
+// pollerRun holds the state of a single polling generation: its ticker and its
+// stop signal. Each Init creates a fresh run; reinitialization signals the
+// previous run to exit rather than leaving it blocked on a stopped ticker,
+// because time.Ticker.Stop does not close the underlying channel.
+type pollerRun struct {
+	ticker   *time.Ticker
+	stop     chan struct{}
+	stopOnce sync.Once
+}
+
+func (r *pollerRun) cancel() {
+	r.stopOnce.Do(func() {
+		r.ticker.Stop()
+		close(r.stop)
+	})
+}
+
+// SetNodeAddress records the node label used when publishing this poller's
+// gauge activity. The supervisor calls this before Start; callers running a
+// Poller directly should call it themselves.
+func (p *Poller) SetNodeAddress(address string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.node = address
 }
 
 func (p *Poller) recordPollerLifeCycle(lifeCycleMethod string) {
@@ -45,25 +76,78 @@ func (p *Poller) recordPollerLifeCycle(lifeCycleMethod string) {
 }
 
 func (p *Poller) Init() error {
-	if p.ticker != nil {
-		p.ticker.Stop()
+	if p.config.Interval <= 0 {
+		return fmt.Errorf("poller interval must be positive, got %d", p.config.Interval)
 	}
-	p.ticker = time.NewTicker(time.Duration(p.config.Interval) * time.Second)
-
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.run != nil {
+		p.run.cancel()
+	}
+	p.run = &pollerRun{
+		ticker: time.NewTicker(time.Duration(p.config.Interval) * time.Second),
+		stop:   make(chan struct{}),
+	}
 	return nil
 }
 
 func (p *Poller) Start() {
+	p.mu.Lock()
+	run := p.run
+	labels := map[string]string{
+		"app_id":       p.AppName,
+		"partition_id": strconv.Itoa(p.PartitionId),
+		"node":         p.node,
+	}
+	p.mu.Unlock()
+	if run == nil {
+		return
+	}
+	// Honor a Stop that was requested before Start had a chance to run.
+	select {
+	case <-run.stop:
+		return
+	default:
+	}
+
+	// Measure real loop entry/exit, not the caller's start/stop requests.
+	// Additive updates keep duplicate loops on the same node visible instead of
+	// being hidden by Set(1). The deferred decrement runs even on panic.
+	addGauge := func(delta float64) {
+		if monitor, ok := p.monitor.(monitoring.GaugeMonitor); ok {
+			monitor.AddGauge(constants.PollerDistribution, labels, delta)
+		}
+	}
+	addGauge(1)
+	defer addGauge(-1)
+	defer run.cancel()
+
 	p.recordPollerLifeCycle(constants.Start)
-	for currentTime := range p.ticker.C {
-		p.recordPollerLifeCycle(constants.Running)
-		timeBucket := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), 0, 0, currentTime.Location())
-		go p.scheduleRetrievalImpl.GetSchedules(p.AppName, p.PartitionId, timeBucket)
+	for {
+		select {
+		case <-run.stop:
+			return
+		case currentTime := <-run.ticker.C:
+			// Re-check stop in case Stop raced with the tick; do not dispatch
+			// a retrieval that a cancel already asked us to skip.
+			select {
+			case <-run.stop:
+				return
+			default:
+			}
+			p.recordPollerLifeCycle(constants.Running)
+			timeBucket := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), currentTime.Hour(), currentTime.Minute(), 0, 0, currentTime.Location())
+			go p.scheduleRetrievalImpl.GetSchedules(p.AppName, p.PartitionId, timeBucket)
+		}
 	}
 }
 
 func (p *Poller) Stop() {
 	p.recordPollerLifeCycle(constants.Stop)
 	glog.Infof("Stopping poller for %s.%d", p.AppName, p.PartitionId)
-	p.ticker.Stop()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.run != nil {
+		p.run.cancel()
+	}
 }
