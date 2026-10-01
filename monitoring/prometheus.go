@@ -1,22 +1,27 @@
 package monitoring
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type PrometheusMonitor struct {
 	Counters   map[string]*prometheus.CounterVec
 	Histograms map[string]*prometheus.HistogramVec
+	Gauges     map[string]*prometheus.GaugeVec
 	Mu         sync.RWMutex
+	registerer prometheus.Registerer
 }
 
 func NewPrometheusMonitor() *PrometheusMonitor {
 	return &PrometheusMonitor{
 		Counters:   make(map[string]*prometheus.CounterVec),
 		Histograms: make(map[string]*prometheus.HistogramVec),
+		Gauges:     make(map[string]*prometheus.GaugeVec),
+		registerer: prometheus.DefaultRegisterer,
 	}
 }
 
@@ -27,8 +32,12 @@ func (p *PrometheusMonitor) IncCounter(name string, labels map[string]string, va
 
 	if !ok {
 		p.Mu.Lock()
-		if _, ok := p.Counters[name]; !ok {
-			counter = promauto.NewCounterVec(
+		// Re-read under the write lock: a concurrent caller may have created the
+		// collector between our RUnlock and Lock. Assigning back into `counter`
+		// ensures every caller returns with a non-nil vector.
+		counter, ok = p.Counters[name]
+		if !ok {
+			counter = promauto.With(p.registerer).NewCounterVec(
 				prometheus.CounterOpts{Name: name},
 				getLabelNames(labels),
 			)
@@ -47,8 +56,9 @@ func (p *PrometheusMonitor) RecordTiming(name string, labels map[string]string, 
 
 	if !ok {
 		p.Mu.Lock()
-		if _, ok := p.Histograms[name]; !ok {
-			histogram = promauto.NewHistogramVec(
+		histogram, ok = p.Histograms[name]
+		if !ok {
+			histogram = promauto.With(p.registerer).NewHistogramVec(
 				prometheus.HistogramOpts{Name: name, Buckets: prometheus.DefBuckets},
 				getLabelNames(labels),
 			)
@@ -58,6 +68,35 @@ func (p *PrometheusMonitor) RecordTiming(name string, labels map[string]string, 
 	}
 
 	histogram.With(labels).Observe(duration.Seconds())
+}
+
+// AddGauge changes a gauge value by delta. Additive updates let callers count
+// actual concurrent activity (for example, two polling loops for the same
+// app/partition on the same node) instead of overwriting the value with Set(1),
+// which would hide duplicates.
+func (p *PrometheusMonitor) AddGauge(name string, labels map[string]string, delta float64) {
+	p.getGauge(name, labels).With(labels).Add(delta)
+}
+
+func (p *PrometheusMonitor) getGauge(name string, labels map[string]string) *prometheus.GaugeVec {
+	p.Mu.RLock()
+	gauge, ok := p.Gauges[name]
+	p.Mu.RUnlock()
+
+	if !ok {
+		p.Mu.Lock()
+		gauge, ok = p.Gauges[name]
+		if !ok {
+			gauge = promauto.With(p.registerer).NewGaugeVec(
+				prometheus.GaugeOpts{Name: name},
+				getLabelNames(labels),
+			)
+			p.Gauges[name] = gauge
+		}
+		p.Mu.Unlock()
+	}
+
+	return gauge
 }
 
 func getLabelNames(labels map[string]string) []string {

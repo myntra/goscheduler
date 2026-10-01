@@ -264,6 +264,13 @@ func (s *Supervisor) StartEntity(id string) (bool, error) {
 	value, exists := s.entities.Get(id)
 	if exists == false {
 		entity := s.entityFactory.CreateEntity(id)
+		// Entities that publish per-node gauge activity (currently the poller)
+		// receive the supervisor's ring address before Start. Kept as an
+		// optional structural interface so other entity types do not need to
+		// implement it.
+		if aware, ok := entity.(interface{ SetNodeAddress(string) }); ok {
+			aware.SetNodeAddress(s.address)
+		}
 		recoverableEntity := RecoverableEntity{Obj: entity}
 		s.entities.Set(id, recoverableEntity)
 		go recoverableEntity.Start()
