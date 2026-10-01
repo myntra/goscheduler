@@ -17,18 +17,11 @@ type PrometheusMonitor struct {
 }
 
 func NewPrometheusMonitor() *PrometheusMonitor {
-	return NewPrometheusMonitorWithRegisterer(prometheus.DefaultRegisterer)
-}
-
-// NewPrometheusMonitorWithRegisterer allows callers to supply an independent
-// registry. This is used by tests that need to observe the metrics exported by
-// a single monitor without interfering with the global default registerer.
-func NewPrometheusMonitorWithRegisterer(registerer prometheus.Registerer) *PrometheusMonitor {
 	return &PrometheusMonitor{
 		Counters:   make(map[string]*prometheus.CounterVec),
 		Histograms: make(map[string]*prometheus.HistogramVec),
 		Gauges:     make(map[string]*prometheus.GaugeVec),
-		registerer: registerer,
+		registerer: prometheus.DefaultRegisterer,
 	}
 }
 

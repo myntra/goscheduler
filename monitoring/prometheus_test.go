@@ -9,6 +9,17 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+// newPrometheusMonitorWithRegisterer builds a monitor wired to an isolated
+// registry. Unexported test helper only; production uses NewPrometheusMonitor.
+func newPrometheusMonitorWithRegisterer(registerer prometheus.Registerer) *PrometheusMonitor {
+	return &PrometheusMonitor{
+		Counters:   make(map[string]*prometheus.CounterVec),
+		Histograms: make(map[string]*prometheus.HistogramVec),
+		Gauges:     make(map[string]*prometheus.GaugeVec),
+		registerer: registerer,
+	}
+}
+
 func gatheredMetric(t *testing.T, registry *prometheus.Registry, name string) *dto.Metric {
 	t.Helper()
 	families, err := registry.Gather()
@@ -61,7 +72,7 @@ func TestConcurrentCollectorInitialization(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			for round := 0; round < 25; round++ {
 				registry := prometheus.NewRegistry()
-				monitor := NewPrometheusMonitorWithRegisterer(registry)
+				monitor := newPrometheusMonitorWithRegisterer(registry)
 				labels := map[string]string{"app_id": "example", "partition_id": "0", "node": "vm-a"}
 				start := make(chan struct{})
 				var wg sync.WaitGroup
@@ -88,8 +99,8 @@ func TestConcurrentCollectorInitialization(t *testing.T) {
 // exported series by touching its own registry.
 func TestSeparateProcessesKeepTheirOwnGauge(t *testing.T) {
 	registryA, registryB := prometheus.NewRegistry(), prometheus.NewRegistry()
-	a := NewPrometheusMonitorWithRegisterer(registryA)
-	b := NewPrometheusMonitorWithRegisterer(registryB)
+	a := newPrometheusMonitorWithRegisterer(registryA)
+	b := newPrometheusMonitorWithRegisterer(registryB)
 	labelsA := map[string]string{"app_id": "example", "partition_id": "0", "node": "vm-a"}
 	labelsB := map[string]string{"app_id": "example", "partition_id": "0", "node": "vm-b"}
 	a.AddGauge("poller_distribution", labelsA, 1)
