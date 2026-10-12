@@ -158,6 +158,15 @@ type NodeCrashReconcile struct {
 	ReconcileOffset int
 }
 
+// NodeRebalance represents the configuration options for handing entities back
+// to their owner node when a node keeps running entities it no longer owns,
+// such as after a node that was falsely declared dead rejoins the cluster.
+type NodeRebalance struct {
+	Enabled            bool // Indicates if this node hands entities it does not own back to their owner
+	IntervalSeconds    int  // Interval between periodic rebalancing sweeps; non-positive uses the default
+	SettleDelaySeconds int  // Delay after a ring change before rebalancing; non-positive uses the default
+}
+
 // TODO: Need to take care of maintaining history for delete action
 // BulkActionConfig represents the configuration options for bulk actions.
 type BulkActionConfig struct {
@@ -218,6 +227,7 @@ type Configuration struct {
 	StatusUpdateConfig       StatusUpdateConfig       // Configuration options for status updates
 	AggregateSchedulesConfig AggregateSchedulesConfig // Configuration options for schedule aggregation
 	NodeCrashReconcile       NodeCrashReconcile       // Configuration options for node crash reconciliation
+	NodeRebalance            NodeRebalance            // Configuration options for handing entities back to their owner node
 	BulkActionConfig         BulkActionConfig         // Configuration options for bulk actions
 	AppLevelConfiguration    AppLevelConfiguration    // Configuration options for app level configuration
 	DCConfig                 DCConfig                 // Configuration options for DC configuration
@@ -292,6 +302,11 @@ var defaultConfig = Configuration{
 	NodeCrashReconcile: NodeCrashReconcile{
 		NeedsReconcile:  true,
 		ReconcileOffset: 3,
+	},
+	NodeRebalance: NodeRebalance{
+		Enabled:            true,
+		IntervalSeconds:    60,
+		SettleDelaySeconds: 5,
 	},
 	BulkActionConfig: BulkActionConfig{
 		BufferSize: 1000,
@@ -393,6 +408,12 @@ func WithAggregateSchedulesConfig(aggregateSchedulesConfig AggregateSchedulesCon
 func WithNodeCrashReconcileConfig(reconcile NodeCrashReconcile) Option {
 	return func(c *Configuration) {
 		c.NodeCrashReconcile = reconcile
+	}
+}
+
+func WithNodeRebalanceConfig(rebalance NodeRebalance) Option {
+	return func(c *Configuration) {
+		c.NodeRebalance = rebalance
 	}
 }
 

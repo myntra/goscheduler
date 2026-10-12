@@ -54,6 +54,11 @@
     "NeedsReconcile": true,
     "ReconcileOffset":3
   },
+  "NodeRebalance" : {
+    "Enabled": true,
+    "IntervalSeconds": 60,
+    "SettleDelaySeconds": 5
+  },
   "MonitoringConfig": {
     "Statsd": {
       "Address": "54.251.41.202:8125",
