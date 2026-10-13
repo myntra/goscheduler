@@ -43,9 +43,11 @@ import (
 	"github.com/uber/tchannel-go"
 	"github.com/uber/tchannel-go/json"
 	"golang.org/x/net/context"
+	"hash/fnv"
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -54,12 +56,15 @@ const (
 	StartEntities    = "StartEntities"
 	StopEntities     = "StopEntities"
 	AppDetailsUpdate = "AppDetailsUpdate"
+	TakeOverEntities = "TakeOverEntities"
 )
 
 const (
 	STOPPED = iota
 	RUNNING
 )
+
+const entityLockStripes = 64
 
 // noinspection SpellCheckingInspection
 type Supervisor struct {
@@ -73,6 +78,22 @@ type Supervisor struct {
 	clusterDao    dao.ClusterDao
 	scheduleDao   dao.ScheduleDao
 	monitor       p.Monitor
+
+	// ownerOf and handoff are ringpop lookup and the TakeOverEntities RPC in
+	// production; tests replace them to drive ownership deterministically.
+	ownerOf func(id string) (string, error)
+	handoff func(destNode string, ids []string) ([]string, error)
+
+	// entityLocks serializes every start, stop, claim and release of the same
+	// entity on this node. Locks are striped by entity ID so that bulk starts,
+	// such as offloading a node, are not funnelled through one mutex while
+	// they write to the cluster DB.
+	entityLocks      [entityLockStripes]sync.Mutex
+	rebalanceTrigger chan struct{}
+	rebalanceStop    chan struct{}
+	rebalanceDone    chan struct{}
+	rebalanceStart   sync.Once
+	rebalanceClose   sync.Once
 }
 
 type options struct {
@@ -86,6 +107,9 @@ type options struct {
 	statsD                bark.StatsReporter
 	reconciliationEnabled bool
 	reconciliationOffset  int
+	rebalanceEnabled      bool
+	rebalanceInterval     time.Duration
+	rebalanceSettleDelay  time.Duration
 }
 
 var defaultOptions = options{
@@ -106,6 +130,9 @@ var defaultOptions = options{
 	joinSize:              1,
 	reconciliationEnabled: true,
 	reconciliationOffset:  3,
+	rebalanceEnabled:      true,
+	rebalanceInterval:     time.Minute,
+	rebalanceSettleDelay:  5 * time.Second,
 }
 
 type Option func(*options)
@@ -170,6 +197,46 @@ func WithReconciliationOffset(reconciliationOffset int) Option {
 	}
 }
 
+// WithRebalanceEnabled turns on handing entities a node no longer owns back to
+// their owner. When disabled the node still accepts entities handed to it by
+// peers, so nodes can be switched over one at a time.
+func WithRebalanceEnabled(rebalanceEnabled bool) Option {
+	return func(o *options) {
+		o.rebalanceEnabled = rebalanceEnabled
+	}
+}
+
+// WithRebalance applies rebalancing settings expressed in seconds, as read from
+// configuration. Non-positive durations keep the defaults.
+func WithRebalance(enabled bool, intervalSeconds int, settleDelaySeconds int) Option {
+	return func(o *options) {
+		o.rebalanceEnabled = enabled
+		if intervalSeconds > 0 {
+			o.rebalanceInterval = time.Duration(intervalSeconds) * time.Second
+		}
+		if settleDelaySeconds > 0 {
+			o.rebalanceSettleDelay = time.Duration(settleDelaySeconds) * time.Second
+		}
+	}
+}
+
+// WithRebalanceInterval sets how often a node hands entities it no longer owns
+// back to their owner, independent of ring change events. Zero disables the
+// periodic sweep; ring changes still trigger rebalancing.
+func WithRebalanceInterval(rebalanceInterval time.Duration) Option {
+	return func(o *options) {
+		o.rebalanceInterval = rebalanceInterval
+	}
+}
+
+// WithRebalanceSettleDelay sets how long to wait after a ring change before
+// rebalancing, so a burst of membership flaps results in a single sweep.
+func WithRebalanceSettleDelay(rebalanceSettleDelay time.Duration) Option {
+	return func(o *options) {
+		o.rebalanceSettleDelay = rebalanceSettleDelay
+	}
+}
+
 func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, monitor p.Monitor, opt ...Option) *Supervisor {
 	opts := defaultOptions
 	for _, o := range opt {
@@ -179,13 +246,18 @@ func NewSupervisor(entityFactory e.EntityFactory, clusterDao dao.ClusterDao, mon
 	glog.Infof("Starting supervisor with options : %+v", opts)
 
 	supervisor := &Supervisor{
-		opt:           opts,
-		clusterName:   opts.clusterName,
-		entities:      cmap.New(),
-		entityFactory: entityFactory,
-		clusterDao:    clusterDao,
-		monitor:       monitor,
+		opt:              opts,
+		clusterName:      opts.clusterName,
+		entities:         cmap.New(),
+		entityFactory:    entityFactory,
+		clusterDao:       clusterDao,
+		monitor:          monitor,
+		rebalanceTrigger: make(chan struct{}, 1),
+		rebalanceStop:    make(chan struct{}),
+		rebalanceDone:    make(chan struct{}),
 	}
+	supervisor.ownerOf = supervisor.lookupOwner
+	supervisor.handoff = supervisor.requestTakeover
 
 	return supervisor
 }
@@ -249,18 +321,35 @@ func (s *Supervisor) InitRingPop() {
 	if err != nil {
 		panic(fmt.Sprintf("Error initializing ringpop %v", err))
 	}
+
+	s.startRebalancer()
 }
 
 // Stop ringpop, TChannel gracefully
 func (s *Supervisor) CloseRingPop() {
+	s.stopRebalancer()
 	s.ringpop.Destroy()
 	s.channel.Close()
+}
+
+// lockEntity locks the stripe guarding id and returns its unlock function.
+func (s *Supervisor) lockEntity(id string) func() {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(id))
+	mu := &s.entityLocks[h.Sum32()%entityLockStripes]
+	mu.Lock()
+	return mu.Unlock
 }
 
 // StartEntity starts an entity if it is not already running.
 // Adds entity in in-memory concurrent map if the entity does not exist.
 // Updates DB with entity status as Running.
 func (s *Supervisor) StartEntity(id string) (bool, error) {
+	defer s.lockEntity(id)()
+	return s.startEntityLocked(id)
+}
+
+func (s *Supervisor) startEntityLocked(id string) (bool, error) {
 	value, exists := s.entities.Get(id)
 	if exists == false {
 		entity := s.entityFactory.CreateEntity(id)
@@ -271,11 +360,17 @@ func (s *Supervisor) StartEntity(id string) (bool, error) {
 		if aware, ok := entity.(interface{ SetNodeAddress(string) }); ok {
 			aware.SetNodeAddress(s.address)
 		}
-		recoverableEntity := RecoverableEntity{Obj: entity}
+		recoverableEntity := newRecoverableEntity(entity)
+		if err := recoverableEntity.Init(); err != nil {
+			return false, err
+		}
 		s.entities.Set(id, recoverableEntity)
 		go recoverableEntity.Start()
 	} else {
 		recoverableEntity := value.(RecoverableEntity)
+		if err := recoverableEntity.Init(); err != nil {
+			return false, err
+		}
 		go recoverableEntity.Start()
 	}
 	return true, s.clusterDao.UpdateEntityStatus(id, s.address, RUNNING)
@@ -285,16 +380,42 @@ func (s *Supervisor) StartEntity(id string) (bool, error) {
 // Removes entity from in-memory concurrent map.
 // Updates DB with entity status as stopped.
 func (s *Supervisor) StopEntity(id string) (bool, error) {
-	var err error
+	defer s.lockEntity(id)()
 
-	value, exists := s.entities.Get(id)
-	if exists {
-		recoverableEntity := value.(RecoverableEntity)
-		recoverableEntity.Stop()
-		s.entities.Remove(id)
-		err = s.clusterDao.UpdateEntityStatus(id, s.address, STOPPED)
+	if !s.removeEntityLocked(id) {
+		return false, nil
 	}
-	return exists, err
+	owner, err := s.currentOwner(id)
+	if err != nil {
+		glog.Warningf("Stopped entity %s on %s without recording STOPPED because ownership could not be verified: %v", id, s.address, err)
+		return true, nil
+	}
+	if owner != s.address {
+		glog.Infof("Stopped local copy of entity %s on %s without recording STOPPED because owner is %s", id, s.address, owner)
+		return true, nil
+	}
+	return true, s.clusterDao.UpdateEntityStatus(id, s.address, STOPPED)
+}
+
+func (s *Supervisor) currentOwner(id string) (owner string, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("looking up owner of %s: %v", id, recovered)
+		}
+	}()
+	return s.ownerOf(id)
+}
+
+// removeEntityLocked stops a locally running entity and drops it from the
+// in-memory map without touching the cluster DB.
+func (s *Supervisor) removeEntityLocked(id string) bool {
+	value, exists := s.entities.Get(id)
+	if !exists {
+		return false
+	}
+	value.(RecoverableEntity).Stop()
+	s.entities.Remove(id)
+	return true
 }
 
 // StartEntities iterates over the list of entityIds.
@@ -530,6 +651,7 @@ func (s *Supervisor) Boot() {
 // StopNode stops all the entities assigned to that node before it is brought down
 func (s *Supervisor) StopNode() {
 	glog.Info("!!!!!!Inside StopNode!!!!!!")
+	s.stopRebalancer()
 	for _, id := range s.entities.Keys() {
 		if _, err := s.StopEntity(id); err != nil {
 			panic(errors.New(fmt.Sprintf("Error while stopping key: %s, error: %+v", id, err)))
@@ -595,7 +717,9 @@ func (s *Supervisor) BootEntity(entity e.EntityInfo, forward bool) (err error) {
 			s.forwardOrPanic(entity, StopEntities)
 		}
 
-		if _, err := s.StartEntity(entity.Id); err != nil {
+		// The entity may already have been handed over to this node by a
+		// rebalancing peer while booting; keep that poller instead of restarting it.
+		if _, err := s.ensureEntityRunning(entity.Id); err != nil {
 			panic(errors.New(fmt.Sprintf("Start entity failed for entity %s with error %+v", entity.Id, err)))
 		}
 
@@ -654,7 +778,12 @@ func (s *Supervisor) AppDetailsUpdateHandler(appName string) {
 
 // RegisterHandler registers actions against respective methods
 func (s *Supervisor) RegisterHandler() error {
-	hmap := map[string]interface{}{StartEntities: s.StartEntities, StopEntities: s.StopEntities, AppDetailsUpdate: s.AppDetailsUpdateEventHandler}
+	hmap := map[string]interface{}{
+		StartEntities:    s.StartEntities,
+		StopEntities:     s.StopEntities,
+		AppDetailsUpdate: s.AppDetailsUpdateEventHandler,
+		TakeOverEntities: s.TakeOverEntities,
+	}
 
 	return json.Register(s.channel, hmap, func(ctx context.Context, err error) {
 		glog.Errorf("error occurred: %v %+v", err, ctx)
@@ -668,6 +797,7 @@ func (s *Supervisor) HandleEvent(event events.Event) {
 	case events.RingChangedEvent:
 		change := event.(events.RingChangedEvent)
 		glog.Infof("Ring updated %+v", v)
+		s.requestRebalance()
 
 		for _, server := range change.ServersRemoved {
 			if s.address == server {
@@ -733,7 +863,7 @@ func (s *Supervisor) DeactivateApp(app store.App) {
 // ActivateApp starts all the pollers for the app
 // Forwards the pollers to start in case destination node is different
 // TODO: Try to combine above methods
-func (s Supervisor) ActivateApp(app store.App) {
+func (s *Supervisor) ActivateApp(app store.App) {
 	glog.Infof("Enabling app %s", app.AppId)
 	var partition uint32 = 0
 	for ; partition < app.Partitions; partition++ {

@@ -81,6 +81,10 @@ func initSupervisor(conf *c.Configuration, retrievers r.Retrievers, clusterDao d
 		cluster.WithReplicaPoints(conf.Cluster.ReplicaPoints),
 		cluster.WithReconciliationEnabled(conf.NodeCrashReconcile.NeedsReconcile),
 		cluster.WithReconciliationOffset(conf.NodeCrashReconcile.ReconcileOffset),
+		cluster.WithRebalance(
+			conf.NodeRebalance.Enabled,
+			conf.NodeRebalance.IntervalSeconds,
+			conf.NodeRebalance.SettleDelaySeconds),
 	)
 	supervisor.InitRingPop()
 	supervisor.Boot()

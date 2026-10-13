@@ -38,13 +38,13 @@ type Request struct {
 
 // Response represents a response received from a remote node.
 type Response struct {
-	ServerAddress string // The server address that sent the response.
-	Error         string // The error message, if any.
-	Status        int    // The status of the response.
+	ServerAddress string   // The server address that sent the response.
+	Error         string   // The error message, if any.
+	Status        int      // The status of the response.
+	Accepted      []string // Entity IDs the responding node took ownership of (TakeOverEntities only).
 }
 
 const (
 	SUCCESS = iota // The request was successful.
 	FAILED         // The request failed.
 )
-
