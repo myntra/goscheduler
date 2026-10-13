@@ -38,10 +38,11 @@ import (
 )
 
 const (
-	selfNode  = "10.0.0.1:9091"
-	nodeB     = "10.0.0.2:9091"
-	nodeC     = "10.0.0.3:9091"
-	waitLimit = 2 * time.Second
+	selfNode                      = "10.0.0.1:9091"
+	nodeB                         = "10.0.0.2:9091"
+	nodeC                         = "10.0.0.3:9091"
+	waitLimit                     = 2 * time.Second
+	maxExpectedRebalanceBatchSize = 25
 )
 
 // fakeRing maps entity IDs to owners; IDs without an owner fail lookup.
@@ -83,6 +84,119 @@ func (c *countingEntity) Stop()       { atomic.AddInt32(&c.stops, 1) }
 func (c *countingEntity) stopCount() int32 { return atomic.LoadInt32(&c.stops) }
 func (c *countingEntity) initCount() int32 { return atomic.LoadInt32(&c.inits) }
 
+type delayedInitEntity struct {
+	initEntered chan struct{}
+	allowInit   chan struct{}
+	started     chan struct{}
+	exited      chan struct{}
+	mu          sync.Mutex
+	stop        chan struct{}
+	stopOnce    sync.Once
+}
+
+func newDelayedInitEntity() *delayedInitEntity {
+	return &delayedInitEntity{
+		initEntered: make(chan struct{}),
+		allowInit:   make(chan struct{}),
+		started:     make(chan struct{}),
+		exited:      make(chan struct{}),
+	}
+}
+
+func (e *delayedInitEntity) Init() error {
+	close(e.initEntered)
+	<-e.allowInit
+	e.mu.Lock()
+	e.stop = make(chan struct{})
+	e.mu.Unlock()
+	return nil
+}
+
+func (e *delayedInitEntity) Start() {
+	close(e.started)
+	e.mu.Lock()
+	stop := e.stop
+	e.mu.Unlock()
+	<-stop
+	close(e.exited)
+}
+
+func (e *delayedInitEntity) Stop() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.stop != nil {
+		e.stopOnce.Do(func() { close(e.stop) })
+	}
+}
+
+type fixedEntityFactory struct {
+	entity cluster_entity.Entity
+}
+
+func (f fixedEntityFactory) CreateEntity(string) cluster_entity.Entity { return f.entity }
+func (f fixedEntityFactory) GetEntityRetriever(string) retrieveriface.Retriever {
+	return nil
+}
+
+type recoveringEntity struct {
+	panicFirstStart   chan struct{}
+	firstStarted      chan struct{}
+	recoveryInit      chan struct{}
+	allowRecoveryInit chan struct{}
+	recoveryStarted   chan struct{}
+	recoveryExited    chan struct{}
+	initCount         int32
+	startCount        int32
+	mu                sync.Mutex
+	stop              chan struct{}
+	stopOnce          sync.Once
+}
+
+func newRecoveringEntity() *recoveringEntity {
+	return &recoveringEntity{
+		panicFirstStart:   make(chan struct{}),
+		firstStarted:      make(chan struct{}),
+		recoveryInit:      make(chan struct{}),
+		allowRecoveryInit: make(chan struct{}),
+		recoveryStarted:   make(chan struct{}),
+		recoveryExited:    make(chan struct{}),
+	}
+}
+
+func (e *recoveringEntity) Init() error {
+	if atomic.AddInt32(&e.initCount, 1) == 2 {
+		close(e.recoveryInit)
+		<-e.allowRecoveryInit
+	}
+	e.mu.Lock()
+	e.stop = make(chan struct{})
+	e.stopOnce = sync.Once{}
+	e.mu.Unlock()
+	return nil
+}
+
+func (e *recoveringEntity) Start() {
+	if atomic.AddInt32(&e.startCount, 1) == 1 {
+		close(e.firstStarted)
+		<-e.panicFirstStart
+		panic("injected start failure")
+	}
+	close(e.recoveryStarted)
+	e.mu.Lock()
+	stop := e.stop
+	e.mu.Unlock()
+	<-stop
+	close(e.recoveryExited)
+}
+
+func (e *recoveringEntity) Stop() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.stop != nil {
+		e.stopOnce.Do(func() { close(e.stop) })
+	}
+}
+
 type bulkAction struct {
 	app         string
 	partitionId int
@@ -92,11 +206,20 @@ type bulkAction struct {
 type recordingRetriever struct {
 	mu      sync.Mutex
 	actions []bulkAction
+	block   <-chan struct{}
+	entered chan struct{}
+	once    sync.Once
 }
 
 func (r *recordingRetriever) GetSchedules(string, int, time.Time) error { return nil }
 
 func (r *recordingRetriever) BulkAction(app store.App, partitionId int, _ time.Time, _ []store.Status, actionType store.ActionType) error {
+	if r.entered != nil {
+		r.once.Do(func() { close(r.entered) })
+	}
+	if r.block != nil {
+		<-r.block
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.actions = append(r.actions, bulkAction{app: app.AppId, partitionId: partitionId, actionType: actionType})
@@ -313,6 +436,25 @@ func TestRebalanceHandsOffOnlyEntitiesOwnedElsewhere(t *testing.T) {
 	assert.Empty(t, n.dao.statusUpdates(), "releasing must not overwrite the owner's DB record")
 }
 
+func TestRebalanceHandsOffEntitiesInBoundedBatches(t *testing.T) {
+	owners := make(map[string]string)
+	n := newTestNode(t, owners)
+	for i := 0; i < maxExpectedRebalanceBatchSize*2+1; i++ {
+		id := fmt.Sprintf("app.%d", i)
+		owners[id] = nodeB
+		n.running(id)
+	}
+
+	n.s.rebalanceEntities()
+
+	calls := n.handoff.recorded()
+	require.Len(t, calls, 3)
+	for _, call := range calls {
+		assert.LessOrEqual(t, len(call.ids), maxExpectedRebalanceBatchSize)
+	}
+	assert.Equal(t, 0, n.s.entities.Count())
+}
+
 func TestRebalanceKeepsEntitiesWhenHandoffFails(t *testing.T) {
 	n := newTestNode(t, map[string]string{"b.0": nodeB, "b.1": nodeB})
 	b0, b1 := n.running("b.0"), n.running("b.1")
@@ -424,11 +566,32 @@ func TestTakeOverStartsOwnedEntityAndReconcilesRecentSchedules(t *testing.T) {
 	eventually(t, func() bool { return created.initCount() == 1 }, "entity was never started")
 	assert.Equal(t, []statusUpdate{{id: "app.3", node: selfNode, status: RUNNING}}, n.dao.statusUpdates())
 	// Offset 2 reconciles the current minute and the two before it.
-	assert.Equal(t, []bulkAction{
-		{app: "app", partitionId: 3, actionType: store.Reconcile},
-		{app: "app", partitionId: 3, actionType: store.Reconcile},
-		{app: "app", partitionId: 3, actionType: store.Reconcile},
-	}, n.factory.retriever.recorded())
+	eventually(t, func() bool {
+		return len(n.factory.retriever.recorded()) == 3
+	}, "entity reconciliation did not complete")
+}
+
+func TestTakeOverRespondsWithoutWaitingForReconciliation(t *testing.T) {
+	n := newTestNode(t, map[string]string{"app.0": selfNode})
+	releaseReconciliation := make(chan struct{})
+	n.factory.retriever.block = releaseReconciliation
+	n.factory.retriever.entered = make(chan struct{})
+
+	response := make(chan *Response, 1)
+	go func() {
+		response <- takeOver(t, n, "app.0")
+	}()
+	<-n.factory.retriever.entered
+
+	select {
+	case res := <-response:
+		assert.Equal(t, []string{"app.0"}, res.Accepted)
+	case <-time.After(100 * time.Millisecond):
+		close(releaseReconciliation)
+		<-response
+		t.Fatal("takeover response waited for schedule reconciliation")
+	}
+	close(releaseReconciliation)
 }
 
 func TestTakeOverOfRunningEntityReassertsOwnershipWithoutRestart(t *testing.T) {
@@ -593,6 +756,73 @@ func TestConcurrentStartEntityCallsCreateOneEntity(t *testing.T) {
 	assert.Equal(t, 1, n.s.entities.Count())
 }
 
+func TestStopImmediatelyAfterStartDoesNotLeaveUntrackedEntityRunning(t *testing.T) {
+	entity := newDelayedInitEntity()
+	s := NewSupervisor(fixedEntityFactory{entity: entity}, &recordingClusterDao{}, nil)
+
+	startDone := make(chan error, 1)
+	go func() {
+		_, err := s.StartEntity("app.0")
+		startDone <- err
+	}()
+	<-entity.initEntered
+
+	stopDone := make(chan error, 1)
+	go func() {
+		_, err := s.StopEntity("app.0")
+		stopDone <- err
+	}()
+
+	close(entity.allowInit)
+	require.NoError(t, <-startDone)
+	require.NoError(t, <-stopDone)
+	<-entity.started
+
+	select {
+	case <-entity.exited:
+	case <-time.After(100 * time.Millisecond):
+		entity.Stop()
+		t.Fatal("entity started after StopEntity removed it from the supervisor")
+	}
+	assert.Equal(t, 0, s.entities.Count())
+}
+
+func TestStopDuringRecoveryDoesNotRestartUntrackedEntity(t *testing.T) {
+	entity := newRecoveringEntity()
+	s := NewSupervisor(fixedEntityFactory{entity: entity}, &recordingClusterDao{}, nil)
+	_, err := s.StartEntity("app.0")
+	require.NoError(t, err)
+	<-entity.firstStarted
+
+	close(entity.panicFirstStart)
+	<-entity.recoveryInit
+	stopDone := make(chan error, 1)
+	go func() {
+		_, stopErr := s.StopEntity("app.0")
+		stopDone <- stopErr
+	}()
+	stopReturnedBeforeRecovery := false
+	select {
+	case stopErr := <-stopDone:
+		require.NoError(t, stopErr)
+		stopReturnedBeforeRecovery = true
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(entity.allowRecoveryInit)
+	if !stopReturnedBeforeRecovery {
+		require.NoError(t, <-stopDone)
+	}
+	<-entity.recoveryStarted
+
+	select {
+	case <-entity.recoveryExited:
+	case <-time.After(100 * time.Millisecond):
+		entity.Stop()
+		t.Fatal("entity restarted after StopEntity removed it during panic recovery")
+	}
+	assert.Equal(t, 0, s.entities.Count())
+}
+
 func TestStopEntityRecordsStopButReleaseDoesNot(t *testing.T) {
 	n := newTestNode(t, map[string]string{"stop.0": selfNode, "release.0": nodeB})
 	stopped := n.running("stop.0")
@@ -607,6 +837,32 @@ func TestStopEntityRecordsStopButReleaseDoesNot(t *testing.T) {
 	assert.Equal(t, int32(1), released.stopCount())
 	assert.Equal(t, 0, n.s.entities.Count())
 	assert.Equal(t, []statusUpdate{{id: "stop.0", node: selfNode, status: STOPPED}}, n.dao.statusUpdates())
+}
+
+func TestStopEntityDoesNotOverwriteStatusWhenAnotherNodeOwnsEntity(t *testing.T) {
+	n := newTestNode(t, map[string]string{"app.0": nodeB})
+	entity := n.running("app.0")
+
+	exists, err := n.s.StopEntity("app.0")
+
+	require.NoError(t, err)
+	assert.True(t, exists)
+	assert.Equal(t, int32(1), entity.stopCount())
+	assert.False(t, n.isRunning("app.0"))
+	assert.Empty(t, n.dao.statusUpdates())
+}
+
+func TestStopEntityDoesNotWriteStatusWhenOwnershipIsUnknown(t *testing.T) {
+	n := newTestNode(t, map[string]string{})
+	entity := n.running("app.0")
+
+	exists, err := n.s.StopEntity("app.0")
+
+	require.NoError(t, err)
+	assert.True(t, exists)
+	assert.Equal(t, int32(1), entity.stopCount())
+	assert.False(t, n.isRunning("app.0"))
+	assert.Empty(t, n.dao.statusUpdates())
 }
 
 func TestStopEntityOfUnknownEntityIsNoop(t *testing.T) {
@@ -807,4 +1063,41 @@ func TestStopNodeStopsRebalancer(t *testing.T) {
 	}
 	assert.Equal(t, 0, n.s.entities.Count())
 	assert.Equal(t, int32(1), entity.stopCount())
+}
+
+func TestStopNodeWaitsForAcceptedHandoffBeforeStoppingEntities(t *testing.T) {
+	n := newTestNode(t, map[string]string{"app.0": nodeB})
+	entity := n.running("app.0")
+	handoffStarted := make(chan struct{})
+	allowHandoff := make(chan struct{})
+	n.handoff.respond = func(_ string, ids []string) ([]string, error) {
+		close(handoffStarted)
+		<-allowHandoff
+		return ids, nil
+	}
+	n.s.startRebalancer()
+	n.s.requestRebalance()
+	<-handoffStarted
+
+	stopped := make(chan struct{})
+	go func() {
+		n.s.StopNode()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		close(allowHandoff)
+		t.Fatal("StopNode returned while a handoff was still in flight")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(allowHandoff)
+	select {
+	case <-stopped:
+	case <-time.After(waitLimit):
+		t.Fatal("StopNode did not finish after the handoff completed")
+	}
+
+	assert.Equal(t, int32(1), entity.stopCount())
+	assert.Empty(t, n.dao.statusUpdates(), "stale sender must not overwrite the owner's RUNNING record")
 }

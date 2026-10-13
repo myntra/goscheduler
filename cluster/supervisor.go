@@ -360,11 +360,17 @@ func (s *Supervisor) startEntityLocked(id string) (bool, error) {
 		if aware, ok := entity.(interface{ SetNodeAddress(string) }); ok {
 			aware.SetNodeAddress(s.address)
 		}
-		recoverableEntity := RecoverableEntity{Obj: entity}
+		recoverableEntity := newRecoverableEntity(entity)
+		if err := recoverableEntity.Init(); err != nil {
+			return false, err
+		}
 		s.entities.Set(id, recoverableEntity)
 		go recoverableEntity.Start()
 	} else {
 		recoverableEntity := value.(RecoverableEntity)
+		if err := recoverableEntity.Init(); err != nil {
+			return false, err
+		}
 		go recoverableEntity.Start()
 	}
 	return true, s.clusterDao.UpdateEntityStatus(id, s.address, RUNNING)
@@ -379,7 +385,25 @@ func (s *Supervisor) StopEntity(id string) (bool, error) {
 	if !s.removeEntityLocked(id) {
 		return false, nil
 	}
+	owner, err := s.currentOwner(id)
+	if err != nil {
+		glog.Warningf("Stopped entity %s on %s without recording STOPPED because ownership could not be verified: %v", id, s.address, err)
+		return true, nil
+	}
+	if owner != s.address {
+		glog.Infof("Stopped local copy of entity %s on %s without recording STOPPED because owner is %s", id, s.address, owner)
+		return true, nil
+	}
 	return true, s.clusterDao.UpdateEntityStatus(id, s.address, STOPPED)
+}
+
+func (s *Supervisor) currentOwner(id string) (owner string, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("looking up owner of %s: %v", id, recovered)
+		}
+	}()
+	return s.ownerOf(id)
 }
 
 // removeEntityLocked stops a locally running entity and drops it from the
