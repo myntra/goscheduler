@@ -38,6 +38,8 @@ import (
 // confirms it is running it, so a handoff can leave a temporary duplicate but
 // never a partition that nobody polls.
 
+const rebalanceBatchSize = 25
+
 func (s *Supervisor) lookupOwner(id string) (string, error) {
 	return s.ringpop.Lookup(id)
 }
@@ -61,8 +63,9 @@ func (s *Supervisor) startRebalancer() {
 	})
 }
 
-// stopRebalancer stops future sweeps without waiting for an in-flight one,
-// since a handoff RPC can take several seconds and must not delay shutdown.
+// stopRebalancer stops future sweeps and waits for an in-flight handoff to
+// finish so shutdown cannot overwrite an owner's freshly recorded RUNNING
+// status with a stale STOPPED update.
 func (s *Supervisor) stopRebalancer() {
 	s.rebalanceClose.Do(func() {
 		close(s.rebalanceStop)
@@ -70,6 +73,7 @@ func (s *Supervisor) stopRebalancer() {
 	s.rebalanceStart.Do(func() {
 		close(s.rebalanceDone)
 	})
+	<-s.rebalanceDone
 }
 
 func (s *Supervisor) runRebalancer() {
@@ -144,20 +148,27 @@ func (s *Supervisor) rebalanceEntities() {
 		default:
 		}
 
-		glog.Infof("Handing off %d entities from %s to owner %s", len(ids), s.address, owner)
-		accepted, err := s.handoff(owner, ids)
-		if err != nil {
-			glog.Errorf("Handing off %d entities from %s to %s failed, keeping them running: %v", len(ids), s.address, owner, err)
-			continue
-		}
+		for start := 0; start < len(ids); start += rebalanceBatchSize {
+			end := start + rebalanceBatchSize
+			if end > len(ids) {
+				end = len(ids)
+			}
+			batch := ids[start:end]
+			glog.Infof("Handing off %d entities from %s to owner %s", len(batch), s.address, owner)
+			accepted, err := s.handoff(owner, batch)
+			if err != nil {
+				glog.Errorf("Handing off %d entities from %s to %s failed, keeping them running: %v", len(batch), s.address, owner, err)
+				continue
+			}
 
-		requested := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			requested[id] = true
-		}
-		for _, id := range accepted {
-			if requested[id] {
-				s.releaseEntity(id, owner)
+			requested := make(map[string]bool, len(batch))
+			for _, id := range batch {
+				requested[id] = true
+			}
+			for _, id := range accepted {
+				if requested[id] {
+					s.releaseEntity(id, owner)
+				}
 			}
 		}
 	}
@@ -261,7 +272,7 @@ func (s *Supervisor) claimEntity(id string) (err error) {
 	if started {
 		glog.Infof("Took over entity %s on %s", id, s.address)
 		if s.opt.reconciliationEnabled {
-			s.fetchAndRetrySchedule(app, entity.GetPartitionId(), s.opt.reconciliationOffset)
+			go s.fetchAndRetrySchedule(app, entity.GetPartitionId(), s.opt.reconciliationOffset)
 		}
 	}
 	return nil

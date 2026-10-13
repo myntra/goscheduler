@@ -19,31 +19,70 @@
 
 package cluster
 
-import "github.com/myntra/goscheduler/cluster_entity"
+import (
+	"errors"
+	"sync"
+
+	"github.com/myntra/goscheduler/cluster_entity"
+)
+
+var errRecoverableEntityStopped = errors.New("recoverable entity is stopped")
+
+type recoverableEntityState struct {
+	mu      sync.Mutex
+	stopped bool
+}
 
 // RecoverableEntity is a wrapper for a recoverable entity.
 type RecoverableEntity struct {
 	Obj       cluster_entity.Entity // The underlying entity.
 	Recovered int                   // The number of times the entity was recovered.
+	state     *recoverableEntityState
+}
+
+func newRecoverableEntity(entity cluster_entity.Entity) RecoverableEntity {
+	return RecoverableEntity{
+		Obj:   entity,
+		state: &recoverableEntityState{},
+	}
 }
 
 // Stop stops the recoverable entity.
 func (r RecoverableEntity) Stop() {
+	if r.state == nil {
+		r.Obj.Stop()
+		return
+	}
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	r.state.stopped = true
 	r.Obj.Stop()
 }
 
-// Start starts the recoverable entity.
+// Init initializes the recoverable entity before its asynchronous start.
+func (r RecoverableEntity) Init() error {
+	if r.state == nil {
+		return r.Obj.Init()
+	}
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	if r.state.stopped {
+		return errRecoverableEntityStopped
+	}
+	return r.Obj.Init()
+}
+
+// Start runs an initialized recoverable entity.
 func (r RecoverableEntity) Start() {
 	defer func() {
 		// Recover from a panic and restart the entity if needed.
 		if err := recover(); err != nil {
 			r.Recovered++
-			r.Obj.Init()
-			r.Obj.Start()
+			if initErr := r.Init(); initErr == nil {
+				r.Obj.Start()
+			}
 		}
 	}()
 
-	// Initialize and start the entity.
-	r.Obj.Init()
 	r.Obj.Start()
 }
